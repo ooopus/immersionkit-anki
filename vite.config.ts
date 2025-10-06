@@ -11,11 +11,11 @@ export default defineConfig({
       userscript: {
         name: 'ImmersionKit → Anki',
         namespace: 'immersionkit_to_anki',
-        version: '1.1.0',
+        version: '1.1.1',
         description:
           "Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.",
         icon: 'https://vitejs.dev/logo.svg',
-        match: ['https://www.immersionkit.com/dictionary*'],
+        match: ['https://www.immersionkit.com/*'],
         connect: [
           'apiv2.immersionkit.com',
           'us-southeast-1.linodeobjects.com',

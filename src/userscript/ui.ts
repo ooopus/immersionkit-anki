@@ -2,7 +2,8 @@ import { CONFIG } from './config';
 import { fetchExamples, buildMediaTargets } from './immersionkit';
 import { attachMedia, ensureFieldOnNote, getMostRecentNoteId } from './anki';
 import { getSuccessText, revertButtonState, setButtonState, injectStyles, showModal } from './dom';
-import { GM_getValue, GM_setValue, GM_registerMenuCommand } from '$';
+import { GM_registerMenuCommand } from '$';
+import { openSettingsOverlay } from './settings-ui';
 import type { AnkiNoteInfo } from './types';
 import { getNoteInfo } from './anki';
 
@@ -99,6 +100,50 @@ function insertAnkiButtons() {
         });
         return a;
       }
+      const url = new URL(window.location.href);
+      const keywordParam = url.searchParams.get('keyword');
+      const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
+      if (keyword) {
+        fetchExamples(keyword)
+          .then((examples) => {
+            menus.forEach((menuEl, idx) => {
+              const ex = Array.isArray(examples) ? examples[idx] : undefined;
+              const hasImage = !!(ex && ex.image);
+              if (hasImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
+                const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
+                  addMediaToAnkiForIndex('picture', i, el),
+                );
+                menuEl.appendChild(imgItem);
+              }
+              if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
+                const audioItem = createAnkiMenuItem('Anki Audio', 'audio', idx, (el, i) =>
+                  addMediaToAnkiForIndex('audio', i, el),
+                );
+                menuEl.appendChild(audioItem);
+              }
+            });
+          })
+          .catch(() => {
+            menus.forEach((menuEl, idx) => {
+              if (!menuEl.querySelector('a.item[data-anki="image"]')) {
+                const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
+                  addMediaToAnkiForIndex('picture', i, el),
+                );
+                menuEl.appendChild(imgItem);
+              }
+              if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
+                const audioItem = createAnkiMenuItem('Anki Audio', 'audio', idx, (el, i) =>
+                  addMediaToAnkiForIndex('audio', i, el),
+                );
+                menuEl.appendChild(audioItem);
+              }
+            });
+          })
+          .finally(() => {
+            clearInterval(interval);
+          });
+        return;
+      }
       menus.forEach((menuEl, idx) => {
         if (!menuEl.querySelector('a.item[data-anki="image"]')) {
           const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
@@ -132,6 +177,36 @@ function insertAnkiButtons() {
         btn.addEventListener('click', (e) => onClickFn(e.currentTarget as Element));
         return btn;
       }
+      const url = new URL(window.location.href);
+      const keywordParam = url.searchParams.get('keyword');
+      const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
+      if (keyword) {
+        fetchExamples(keyword)
+          .then((examples) => {
+            const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
+            const ex = Array.isArray(examples) ? examples[Math.max(0, Math.min(idx, examples.length - 1))] : undefined;
+            const hasImage = !!(ex && ex.image);
+            if (hasImage && imageButton) {
+              const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
+              imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
+            }
+            if (soundButton) {
+              const ankiSoundBtn = createAnkiBtn('Anki Audio', 'audio', (el) => addMediaToAnki('audio', el));
+              soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
+            }
+          })
+          .catch(() => {
+            if (imageButton) {
+              const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
+              imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
+            }
+            if (soundButton) {
+              const ankiSoundBtn = createAnkiBtn('Anki Audio', 'audio', (el) => addMediaToAnki('audio', el));
+              soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
+            }
+          });
+        return;
+      }
       if (imageButton) {
         const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
         imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
@@ -147,14 +222,45 @@ function insertAnkiButtons() {
   }, 500);
 }
 
+let stylesInjected = false;
 function init() {
-  injectStyles();
+  if (!stylesInjected) {
+    injectStyles();
+    stylesInjected = true;
+  }
   setTimeout(insertAnkiButtons, 1000);
 }
 
+function isDictionaryPage(u?: URL) {
+  const url = u || new URL(window.location.href);
+  return url.pathname.startsWith('/dictionary');
+}
+
+let lastInitializedHref: string | null = null;
+function maybeInitForDictionary() {
+  if (!isDictionaryPage()) return;
+  const href = window.location.href;
+  if (href === lastInitializedHref) return;
+  lastInitializedHref = href;
+  init();
+}
+
 export function startUserscript() {
-  if (document.readyState === 'complete') init();
-  else window.addEventListener('load', init);
+  const onReady = () => {
+    maybeInitForDictionary();
+    let lastHref = window.location.href;
+    window.addEventListener('popstate', maybeInitForDictionary);
+    window.addEventListener('hashchange', maybeInitForDictionary);
+    setInterval(() => {
+      const current = window.location.href;
+      if (current !== lastHref) {
+        lastHref = current;
+        maybeInitForDictionary();
+      }
+    }, 400);
+  };
+  if (document.readyState === 'complete') onReady();
+  else window.addEventListener('load', onReady);
 }
 
 function escapeHtml(s: string) {
@@ -166,85 +272,10 @@ function escapeHtml(s: string) {
     .replace(/'/g, '&#039;');
 }
 
-type Settings = {
-  ankiUrl: string;
-  ankiKey: string;
-  imageField: string;
-  audioField: string;
-  exampleIndex: number;
-  confirmOverwrite: boolean;
-};
-
-function getSettings(): Settings {
-  return {
-    ankiUrl: (GM_getValue?.('ankiUrl') as string) || CONFIG.ANKI_CONNECT_URL,
-    ankiKey: (GM_getValue?.('ankiKey') as string) || (CONFIG.ANKI_CONNECT_KEY || ''),
-    imageField: (GM_getValue?.('imageField') as string) || CONFIG.IMAGE_FIELD_NAME,
-    audioField: (GM_getValue?.('audioField') as string) || CONFIG.AUDIO_FIELD_NAME,
-    exampleIndex: Number(GM_getValue?.('exampleIndex') ?? CONFIG.EXAMPLE_INDEX) || 0,
-    confirmOverwrite: Boolean(GM_getValue?.('confirmOverwrite') ?? CONFIG.CONFIRM_OVERWRITE),
-  };
-}
-
-function saveSettings(s: Settings) {
-  GM_setValue?.('ankiUrl', s.ankiUrl.trim());
-  GM_setValue?.('ankiKey', s.ankiKey.trim());
-  GM_setValue?.('imageField', s.imageField.trim());
-  GM_setValue?.('audioField', s.audioField.trim());
-  GM_setValue?.('exampleIndex', Number.isFinite(s.exampleIndex) ? s.exampleIndex : 0);
-  GM_setValue?.('confirmOverwrite', !!s.confirmOverwrite);
-  CONFIG.ANKI_CONNECT_URL = s.ankiUrl.trim() || CONFIG.ANKI_CONNECT_URL;
-  CONFIG.ANKI_CONNECT_KEY = s.ankiKey.trim() || null;
-  CONFIG.IMAGE_FIELD_NAME = s.imageField.trim() || CONFIG.IMAGE_FIELD_NAME;
-  CONFIG.AUDIO_FIELD_NAME = s.audioField.trim() || CONFIG.AUDIO_FIELD_NAME;
-  CONFIG.EXAMPLE_INDEX = Number.isFinite(s.exampleIndex) ? s.exampleIndex : CONFIG.EXAMPLE_INDEX;
-  CONFIG.CONFIRM_OVERWRITE = !!s.confirmOverwrite;
-}
-
-function renderSettingsHtml(s: Settings) {
-  return `
-    <form class="anki-form">
-      <label>AnkiConnect URL</label>
-      <input type="text" name="ankiUrl" value="${escapeHtml(s.ankiUrl)}" placeholder="http://127.0.0.1:8765" />
-      <label>AnkiConnect Key</label>
-      <input type="password" name="ankiKey" value="${escapeHtml(s.ankiKey)}" placeholder="（可选）" />
-      <label>图片字段名</label>
-      <input type="text" name="imageField" value="${escapeHtml(s.imageField)}" />
-      <label>音频字段名</label>
-      <input type="text" name="audioField" value="${escapeHtml(s.audioField)}" />
-      <label>示例索引</label>
-      <input type="number" name="exampleIndex" value="${String(s.exampleIndex)}" min="0" />
-      <label>覆盖前确认</label>
-      <input type="checkbox" name="confirmOverwrite" ${s.confirmOverwrite ? 'checked' : ''} />
-    </form>
-  `;
-}
+// legacy form-based settings removed in favor of Svelte UI
 
 export function registerMenu() {
-  if (typeof GM_registerMenuCommand !== 'function') return;
-  GM_registerMenuCommand('设置（ImmersionKit → Anki）', async () => {
-    const s = getSettings();
-    const html = renderSettingsHtml(s);
-    await showModal({
-      title: '设置（ImmersionKit → Anki）',
-      html,
-      confirmText: '保存',
-      onConfirm: (root) => {
-        const form = root.querySelector('form') as HTMLFormElement | null;
-        if (!form) return true;
-        const next: Settings = {
-          ankiUrl: (form.querySelector('[name="ankiUrl"]') as HTMLInputElement)?.value || s.ankiUrl,
-          ankiKey: (form.querySelector('[name="ankiKey"]') as HTMLInputElement)?.value || '',
-          imageField: (form.querySelector('[name="imageField"]') as HTMLInputElement)?.value || s.imageField,
-          audioField: (form.querySelector('[name="audioField"]') as HTMLInputElement)?.value || s.audioField,
-          exampleIndex: Number((form.querySelector('[name="exampleIndex"]') as HTMLInputElement)?.value || s.exampleIndex) || 0,
-          confirmOverwrite: !!(form.querySelector('[name="confirmOverwrite"]') as HTMLInputElement)?.checked,
-        };
-        saveSettings(next);
-        return true;
-      },
-    });
+  GM_registerMenuCommand('设置（ImmersionKit → Anki）', () => {
+    openSettingsOverlay();
   });
 }
-
-

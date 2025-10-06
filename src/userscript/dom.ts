@@ -5,12 +5,12 @@ export type ButtonState = 'idle' | 'pending' | 'success' | 'error';
 export function setButtonState(el: Element | null, state: ButtonState, text?: string) {
   if (!el) return;
   const node = el as HTMLElement;
-  if (!(node as any).dataset.ankiOriginalText) {
-    (node as any).dataset.ankiOriginalText = node.textContent || '';
+  if (!node.dataset.ankiOriginalText) {
+    node.dataset.ankiOriginalText = node.textContent || '';
   }
   node.classList.remove('anki-feedback-pending', 'anki-feedback-success', 'anki-feedback-error');
   if (state === 'idle') {
-    node.textContent = (node as any).dataset.ankiOriginalText;
+    node.textContent = node.dataset.ankiOriginalText;
     if (node.tagName === 'BUTTON') (node as HTMLButtonElement).disabled = false;
     return;
   }
@@ -38,7 +38,7 @@ export function revertButtonState(el: Element | null) {
   const node = el as HTMLElement;
   node.classList.remove('anki-feedback-pending', 'anki-feedback-success', 'anki-feedback-error');
   if (node.tagName === 'BUTTON') (node as HTMLButtonElement).disabled = false;
-  node.textContent = (node as any).dataset.ankiOriginalText || node.textContent;
+  node.textContent = node.dataset.ankiOriginalText || node.textContent;
 }
 
 export function getSuccessText(mediaType: 'picture' | 'audio') {
@@ -100,12 +100,10 @@ export function showModal(opts: {
         try {
           const ok = await opts.onConfirm(modal);
           if (ok === false) return;
-        } catch {}
+        } catch { }
       }
       onResolve(true);
     });
     document.body.appendChild(overlay);
   });
 }
-
-

@@ -6,7 +6,7 @@ type AnkiConnectResult<T> = { result: T; error: string | null };
 
 export function invokeAnkiConnect<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const payload: Record<string, unknown> = { action, version: 6, params };
-  if (CONFIG.ANKI_CONNECT_KEY) (payload as any).key = CONFIG.ANKI_CONNECT_KEY;
+  if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
   const endpoints = [CONFIG.ANKI_CONNECT_URL, 'http://localhost:8765'];
   return new Promise((resolve, reject) => {
     let tried = 0;

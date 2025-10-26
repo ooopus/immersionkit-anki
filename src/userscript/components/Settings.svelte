@@ -11,6 +11,7 @@
         audioField: CONFIG.AUDIO_FIELD_NAME,
         exampleIndex: CONFIG.EXAMPLE_INDEX,
         confirmOverwrite: CONFIG.CONFIRM_OVERWRITE,
+        targetNoteMode: CONFIG.TARGET_NOTE_MODE,
     };
     export let onClose: () => void = () => {};
 
@@ -135,6 +136,16 @@
                             bind:checked={state.confirmOverwrite}
                         /> 覆盖前确认
                     </label>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <label for="target-mode">目标笔记</label>
+                    <select id="target-mode" bind:value={state.targetNoteMode}>
+                        <option value="recent">最近添加的笔记</option>
+                        <option value="selected">浏览器中选中的笔记</option>
+                    </select>
                 </div>
             </div>
 

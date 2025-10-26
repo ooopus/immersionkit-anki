@@ -1,9 +1,14 @@
-import type { ImmersionKitExample, ImmersionKitSearchResponse } from './types';
+import type { ImmersionKitExample, ImmersionKitSearchOptions, ImmersionKitSearchResponse } from './types';
 import { GM_xmlhttpRequest } from '$';
 
-export function fetchExamples(keyword: string): Promise<ImmersionKitExample[]> {
+export function fetchExamples(keyword: string, opts: ImmersionKitSearchOptions = {}): Promise<ImmersionKitExample[]> {
     return new Promise((resolve, reject) => {
-        const url = `https://apiv2.immersionkit.com/search?q=${encodeURIComponent(keyword)}`;
+        const params: string[] = [`q=${encodeURIComponent(keyword)}`];
+        if (opts.index) params.push(`index=${encodeURIComponent(opts.index)}`);
+        if (typeof opts.exactMatch === 'boolean') params.push(`exactMatch=${String(opts.exactMatch)}`);
+        if (typeof opts.limit === 'number') params.push(`limit=${String(opts.limit)}`);
+        if (opts.sort) params.push(`sort=${encodeURIComponent(opts.sort)}`);
+        const url = `https://apiv2.immersionkit.com/search?${params.join('&')}`;
         GM_xmlhttpRequest({
             method: 'GET',
             url,

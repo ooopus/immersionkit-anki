@@ -10,6 +10,13 @@ export interface ImmersionKitSearchResponse {
   examples: ImmersionKitExample[];
 }
 
+export interface ImmersionKitSearchOptions {
+  exactMatch?: boolean;
+  limit?: number;
+  sort?: string;
+  index?: string;
+}
+
 export type AnkiCardId = number;
 export type AnkiNoteId = number;
 

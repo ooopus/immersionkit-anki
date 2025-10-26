@@ -4,6 +4,14 @@ import { GM_xmlhttpRequest } from '$';
 
 type AnkiConnectResult<T> = { result: T; error: string | null };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function hasProp<K extends string>(obj: unknown, key: K): obj is Record<K, unknown> {
+  return isObject(obj) && key in obj;
+}
+
 export function invokeAnkiConnect<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
   const payload: Record<string, unknown> = { action, version: 6, params };
   if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
@@ -23,13 +31,16 @@ export function invokeAnkiConnect<T = unknown>(action: string, params: Record<st
         headers: { 'Content-Type': 'application/json' },
         onload: (res) => {
           try {
-            const data = JSON.parse(res.responseText) as AnkiConnectResult<T> | T;
-            if (data && typeof data === 'object' && 'error' in (data as any)) {
-              const ac = data as AnkiConnectResult<T>;
-              if (ac.error) reject(new Error(ac.error));
-              else resolve(ac.result as T);
-            } else if (data && typeof data === 'object' && 'result' in (data as any)) {
-              resolve((data as any).result as T);
+            const data: unknown = JSON.parse(res.responseText);
+            if (hasProp(data, 'error') && hasProp(data, 'result')) {
+              const envelope = data as AnkiConnectResult<T>;
+              if (envelope.error) {
+                reject(new Error(envelope.error));
+              } else {
+                resolve(envelope.result);
+              }
+            } else if (hasProp(data, 'result')) {
+              resolve((data as { result: T }).result);
             } else {
               resolve(data as T);
             }
@@ -64,7 +75,7 @@ export async function ensureFieldOnNote(noteId: AnkiNoteId, fieldName: string): 
   const noteInfoList = await invokeAnkiConnect<AnkiNoteInfo[] | AnkiNoteInfo>('notesInfo', { notes: [noteId] });
   const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
   if (!noteInfo || !noteInfo.fields || !(fieldName in noteInfo.fields)) {
-    throw new Error(`Field “${fieldName}” does not exist on the latest note`);
+    throw new Error(`Field “${fieldName}” does not exist on the note`);
   }
 }
 
@@ -76,4 +87,11 @@ export async function attachMedia(noteId: AnkiNoteId, mediaType: MediaType, medi
   await invokeAnkiConnect('updateNoteFields', { note: noteUpdate });
 }
 
+export async function getSelectedNoteIds(): Promise<AnkiNoteId[]> {
+  const ids = await invokeAnkiConnect<AnkiNoteId[]>('guiSelectedNotes');
+  return Array.isArray(ids) ? ids : [];
+}
 
+export async function openNoteEditor(noteId: AnkiNoteId): Promise<void> {
+  await invokeAnkiConnect<null>('guiEditNote', { note: noteId });
+}

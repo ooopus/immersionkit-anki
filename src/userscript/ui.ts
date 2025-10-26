@@ -1,11 +1,85 @@
 import { CONFIG } from './config';
 import { fetchExamples, buildMediaTargets } from './immersionkit';
-import { attachMedia, ensureFieldOnNote, getMostRecentNoteId } from './anki';
+import { attachMedia, ensureFieldOnNote, getMostRecentNoteId, getSelectedNoteIds } from './anki';
 import { getSuccessText, revertButtonState, setButtonState, injectStyles, showModal } from './dom';
 import { GM_registerMenuCommand } from '$';
 import { openSettingsOverlay } from './settings-ui';
 import type { AnkiNoteInfo } from './types';
-import { getNoteInfo } from './anki';
+import { getNoteInfo, openNoteEditor } from './anki';
+import { captureAudioUrlFromMining } from './miningSoundCapture';
+
+function ensureOpenEditorControl(triggerEl: Element, noteId: number) {
+  if (!noteId || !Number.isFinite(noteId)) return;
+  const idx = (triggerEl as HTMLElement).dataset.ankiIndex || '';
+  // Try menu-style anchor placement
+  let container: Element | null = triggerEl.closest('.ui.secondary.menu');
+  if (container) {
+    let audioAnchor: HTMLAnchorElement | null = null;
+    if ((triggerEl as HTMLElement).dataset.anki === 'audio') {
+      audioAnchor = triggerEl as HTMLAnchorElement;
+    } else if (idx) {
+      audioAnchor = container.querySelector(`a.item[data-anki="audio"][data-anki-index="${idx}"]`);
+    } else {
+      audioAnchor = container.querySelector('a.item[data-anki="audio"]');
+    }
+    if (audioAnchor) {
+      let openAnchor = container.querySelector(`a.item[data-anki="open"][data-anki-index="${idx}"]`) as HTMLAnchorElement | null;
+      if (!openAnchor) {
+        openAnchor = document.createElement('a');
+        openAnchor.className = 'item';
+        openAnchor.href = '#';
+        openAnchor.dataset.anki = 'open';
+        if (idx) openAnchor.dataset.ankiIndex = idx;
+        openAnchor.textContent = '打开';
+        openAnchor.style.opacity = '0.7';
+        openAnchor.style.fontSize = '90%';
+        openAnchor.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const idStr = (e.currentTarget as HTMLElement).dataset.ankiOpenId;
+          const id = idStr ? Number(idStr) : NaN;
+          if (Number.isFinite(id)) {
+            try { await openNoteEditor(id); } catch { }
+          }
+        });
+        audioAnchor.parentNode?.insertBefore(openAnchor, audioAnchor.nextSibling);
+      }
+      openAnchor.dataset.ankiOpenId = String(noteId);
+      return;
+    }
+  }
+  // Fallback: button-based placement (when not using menu anchors)
+  const audioButton = document.querySelector('button[data-anki="audio"]') as HTMLButtonElement | null;
+  if (audioButton) {
+    let openBtn = audioButton.parentElement?.querySelector('button[data-anki="open"]') as HTMLButtonElement | null;
+    if (!openBtn) {
+      openBtn = document.createElement('button');
+      openBtn.dataset.anki = 'open';
+      openBtn.textContent = '打开';
+      openBtn.style.marginLeft = '6px';
+      openBtn.style.padding = '4px 8px';
+      openBtn.style.fontSize = '90%';
+      openBtn.style.cursor = 'pointer';
+      openBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const idStr = (e.currentTarget as HTMLElement).dataset.ankiOpenId;
+        const id = idStr ? Number(idStr) : NaN;
+        if (Number.isFinite(id)) {
+          try { await openNoteEditor(id); } catch { }
+        }
+      });
+      audioButton.parentNode?.insertBefore(openBtn, audioButton.nextSibling);
+    }
+    openBtn.dataset.ankiOpenId = String(noteId);
+  }
+}
+
+function isExactSearchEnabled(): boolean {
+  const labels = Array.from(document.querySelectorAll('div.ui.checkbox label'));
+  const label = labels.find((el) => el.textContent?.trim() === 'Exact Search');
+  if (!label) return false;
+  const wrapper = label.closest('.ui.checkbox');
+  return !!(wrapper && wrapper.classList.contains('checked'));
+}
 
 async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleIndex: number, triggerEl?: Element) {
   const url = new URL(window.location.href);
@@ -21,45 +95,96 @@ async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleInd
   const keyword = decodeURIComponent(keywordParam);
   try {
     if (triggerEl) setButtonState(triggerEl, 'pending', '添加中…');
-    const examples = await fetchExamples(keyword);
-    let index = Number.isFinite(exampleIndex) ? exampleIndex : 0;
-    if (index < 0) index = 0;
-    if (index >= examples.length) index = examples.length - 1;
-    const example = examples[index];
-    if (!example) throw new Error('No example available');
-    if (mediaType === 'picture' && !example.image) throw new Error('Example has no image');
-    if (mediaType === 'audio' && !example.sound) throw new Error('Example has no audio');
-    const { apiUrl, filename } = buildMediaTargets(example, mediaType);
+
+    let apiUrl = '';
+    let filename = '';
     const fieldName = mediaType === 'picture' ? CONFIG.IMAGE_FIELD_NAME : CONFIG.AUDIO_FIELD_NAME;
-    const noteId = await getMostRecentNoteId();
-    await ensureFieldOnNote(noteId, fieldName);
-    if (CONFIG.CONFIRM_OVERWRITE) {
-      const info = (await getNoteInfo(noteId)) as AnkiNoteInfo | null;
-      const model = info?.modelName || '';
-      const existing = info?.fields?.[fieldName]?.value || '';
-      const hasExisting = typeof existing === 'string' && existing.trim().length > 0;
-      const html = `
-        <div class="anki-kv"><div class="key">Note ID</div><div>${noteId}</div></div>
-        <div class="anki-kv"><div class="key">Note Type</div><div>${model || '未知'}</div></div>
-        <div class="anki-kv"><div class="key">字段</div><div>${fieldName}</div></div>
-        ${hasExisting ? `<div class="anki-kv row-span-2"><div class="key">原有内容</div><div><div class="anki-pre">${escapeHtml(existing)}</div></div></div>` : ''}
-        <div class="anki-kv"><div class="key">将添加</div><div>${filename}</div></div>
-      `;
-      const proceed = await showModal({
-        title: hasExisting ? '覆盖字段内容？' : '添加媒体',
-        html,
-        confirmText: hasExisting ? '覆盖并添加' : '添加',
-        danger: hasExisting,
-      });
-      if (!proceed) {
-        if (triggerEl) revertButtonState(triggerEl);
-        return;
+
+    if (mediaType === 'audio') {
+      const captured = await captureAudioUrlFromMining(triggerEl);
+      if (captured && captured.url) {
+        apiUrl = captured.url;
+        filename = captured.filename;
       }
     }
-    await attachMedia(noteId, mediaType, { url: apiUrl, filename }, fieldName);
+
+    if (!apiUrl) {
+      const examples = await fetchExamples(keyword, {
+        exactMatch: isExactSearchEnabled(),
+        limit: 0,
+        sort: 'sentence_length:asc',
+      });
+      let index = Number.isFinite(exampleIndex) ? exampleIndex : 0;
+      if (index < 0) index = 0;
+      if (index >= examples.length) index = examples.length - 1;
+      const example = examples[index];
+      if (!example) throw new Error('No example available');
+      if (mediaType === 'picture' && !example.image) throw new Error('Example has no image');
+      if (mediaType === 'audio' && !example.sound) throw new Error('Example has no audio');
+      const targets = buildMediaTargets(example, mediaType);
+      apiUrl = targets.apiUrl;
+      filename = targets.filename;
+    }
+    let targetNoteIds: number[] = [];
+    if (CONFIG.TARGET_NOTE_MODE === 'selected') {
+      targetNoteIds = await getSelectedNoteIds();
+      if (!Array.isArray(targetNoteIds) || targetNoteIds.length === 0) {
+        throw new Error('未检测到选中笔记');
+      }
+    } else {
+      const noteId = await getMostRecentNoteId();
+      targetNoteIds = [noteId];
+    }
+
+    let successCount = 0;
+    for (const noteId of targetNoteIds) {
+      try {
+        await ensureFieldOnNote(noteId, fieldName);
+        if (CONFIG.CONFIRM_OVERWRITE) {
+          const info = (await getNoteInfo(noteId)) as AnkiNoteInfo | null;
+          const model = info?.modelName || '';
+          const existing = info?.fields?.[fieldName]?.value || '';
+          const hasExisting = typeof existing === 'string' && existing.trim().length > 0;
+          if (hasExisting) {
+            const html = `
+              <div class="anki-kv"><div class="key">Note ID</div><div>${noteId}</div></div>
+              <div class="anki-kv"><div class="key">Note Type</div><div>${model || '未知'}</div></div>
+              <div class="anki-kv"><div class="key">字段</div><div>${fieldName}</div></div>
+              <div class="anki-kv row-span-2"><div class="key">原有内容</div><div><div class="anki-pre">${escapeHtml(existing)}</div></div></div>
+              <div class="anki-kv"><div class="key">将添加</div><div>${filename}</div></div>
+            `;
+            const proceed = await showModal({
+              title: '覆盖字段内容？',
+              html,
+              confirmText: '覆盖并添加',
+              danger: true,
+            });
+            if (!proceed) {
+              continue;
+            }
+          }
+        }
+        await attachMedia(noteId, mediaType, { url: apiUrl, filename }, fieldName);
+        successCount++;
+      } catch (e) {
+        // skip this note and continue others
+        console.warn('Failed to add media to note', noteId, e);
+        continue;
+      }
+    }
     if (triggerEl) {
-      setButtonState(triggerEl, 'success', getSuccessText(mediaType));
-      setTimeout(() => revertButtonState(triggerEl), 2000);
+      if (successCount > 0) {
+        const total = targetNoteIds.length;
+        const text = total > 1 ? `已添加 ${successCount}/${total}` : getSuccessText(mediaType);
+        setButtonState(triggerEl, 'success', text);
+        setTimeout(() => revertButtonState(triggerEl), 2000);
+        if (total >= 1) {
+          ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
+        }
+      } else {
+        setButtonState(triggerEl, 'error', '添加失败');
+        setTimeout(() => revertButtonState(triggerEl), 2500);
+      }
     }
   } catch (err) {
     if (triggerEl) {
@@ -104,7 +229,11 @@ function insertAnkiButtons() {
       const keywordParam = url.searchParams.get('keyword');
       const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
       if (keyword) {
-        fetchExamples(keyword)
+        fetchExamples(keyword, {
+          exactMatch: isExactSearchEnabled(),
+          limit: 0,
+          sort: 'sentence_length:asc',
+        })
           .then((examples) => {
             menus.forEach((menuEl, idx) => {
               const ex = Array.isArray(examples) ? examples[idx] : undefined;
@@ -120,6 +249,7 @@ function insertAnkiButtons() {
                   addMediaToAnkiForIndex('audio', i, el),
                 );
                 menuEl.appendChild(audioItem);
+                // no pre-insertion of open button; it will appear only after successful add
               }
             });
           })
@@ -181,7 +311,11 @@ function insertAnkiButtons() {
       const keywordParam = url.searchParams.get('keyword');
       const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
       if (keyword) {
-        fetchExamples(keyword)
+        fetchExamples(keyword, {
+          exactMatch: isExactSearchEnabled(),
+          limit: 0,
+          sort: 'sentence_length:asc',
+        })
           .then((examples) => {
             const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
             const ex = Array.isArray(examples) ? examples[Math.max(0, Math.min(idx, examples.length - 1))] : undefined;

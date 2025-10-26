@@ -8,6 +8,7 @@ export type Settings = {
     audioField: string;
     exampleIndex: number;
     confirmOverwrite: boolean;
+    targetNoteMode: 'recent' | 'selected';
 };
 
 export function getSettings(): Settings {
@@ -18,6 +19,7 @@ export function getSettings(): Settings {
         audioField: (GM_getValue?.('audioField') as string) || CONFIG.AUDIO_FIELD_NAME,
         exampleIndex: Number(GM_getValue?.('exampleIndex') ?? CONFIG.EXAMPLE_INDEX) || 0,
         confirmOverwrite: Boolean(GM_getValue?.('confirmOverwrite') ?? CONFIG.CONFIRM_OVERWRITE),
+        targetNoteMode: (GM_getValue?.('targetNoteMode') as 'recent' | 'selected') || CONFIG.TARGET_NOTE_MODE,
     };
 }
 
@@ -28,12 +30,14 @@ export function saveSettings(s: Settings) {
     GM_setValue?.('audioField', s.audioField.trim());
     GM_setValue?.('exampleIndex', Number.isFinite(s.exampleIndex) ? s.exampleIndex : 0);
     GM_setValue?.('confirmOverwrite', !!s.confirmOverwrite);
+    GM_setValue?.('targetNoteMode', s.targetNoteMode === 'selected' ? 'selected' : 'recent');
     CONFIG.ANKI_CONNECT_URL = s.ankiUrl.trim() || CONFIG.ANKI_CONNECT_URL;
     CONFIG.ANKI_CONNECT_KEY = s.ankiKey.trim() || null;
     CONFIG.IMAGE_FIELD_NAME = s.imageField.trim() || CONFIG.IMAGE_FIELD_NAME;
     CONFIG.AUDIO_FIELD_NAME = s.audioField.trim() || CONFIG.AUDIO_FIELD_NAME;
     CONFIG.EXAMPLE_INDEX = Number.isFinite(s.exampleIndex) ? s.exampleIndex : CONFIG.EXAMPLE_INDEX;
     CONFIG.CONFIRM_OVERWRITE = !!s.confirmOverwrite;
+    CONFIG.TARGET_NOTE_MODE = s.targetNoteMode === 'selected' ? 'selected' : 'recent';
 }
 
 

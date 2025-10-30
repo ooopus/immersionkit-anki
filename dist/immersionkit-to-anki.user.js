@@ -3582,6 +3582,12 @@ active_effect
     const mobileItems = Array.from(document.querySelectorAll(".item.mobile.only"));
     return mobileItems;
   }
+  function getMenuIndex(menuEl) {
+    const itemEl = menuEl.closest(".item.mobile.or.lower.hidden") || menuEl.closest(".item.mobile.only");
+    const items = getExampleItems();
+    const idx = itemEl ? items.indexOf(itemEl) : -1;
+    return idx >= 0 ? idx : 0;
+  }
   function resolveAbsoluteUrl(srcAttr) {
     try {
       return new URL(srcAttr, window.location.origin).href;
@@ -3733,6 +3739,41 @@ active_effect
   function addMediaToAnki(mediaType, triggerEl) {
     return addMediaToAnkiForIndex(mediaType, CONFIG.EXAMPLE_INDEX, triggerEl);
   }
+  function injectMenuButtons(menuEl) {
+    const idx = getMenuIndex(menuEl);
+    const showImage = hasImageAtIndex(idx);
+    function createAnkiMenuItem(label, key, index, onClickFn) {
+      const a = document.createElement("a");
+      a.className = "item";
+      a.href = "#";
+      a.dataset.anki = key;
+      a.dataset.ankiIndex = String(index);
+      a.textContent = label;
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        onClickFn(e.currentTarget, index);
+      });
+      return a;
+    }
+    if (showImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
+      const imgItem = createAnkiMenuItem(
+        "Anki Image",
+        "image",
+        idx,
+        (el, i) => addMediaToAnkiForIndex("picture", i, el)
+      );
+      menuEl.appendChild(imgItem);
+    }
+    if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
+      const audioItem = createAnkiMenuItem(
+        "Anki Audio",
+        "audio",
+        idx,
+        (el, i) => addMediaToAnkiForIndex("audio", i, el)
+      );
+      menuEl.appendChild(audioItem);
+    }
+  }
   function insertAnkiButtons() {
     let attempts = 0;
     const maxAttempts = 40;
@@ -3746,40 +3787,7 @@ active_effect
       );
       const menus = desktopMenus.length > 0 ? desktopMenus : mobileMenus;
       if (menus.length > 0) {
-        let createAnkiMenuItem = function(label, key, index, onClickFn) {
-          const a = document.createElement("a");
-          a.className = "item";
-          a.href = "#";
-          a.dataset.anki = key;
-          a.dataset.ankiIndex = String(index);
-          a.textContent = label;
-          a.addEventListener("click", (e) => {
-            e.preventDefault();
-            onClickFn(e.currentTarget, index);
-          });
-          return a;
-        };
-        menus.forEach((menuEl, idx) => {
-          const showImage = hasImageAtIndex(idx);
-          if (showImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
-            const imgItem = createAnkiMenuItem(
-              "Anki Image",
-              "image",
-              idx,
-              (el, i) => addMediaToAnkiForIndex("picture", i, el)
-            );
-            menuEl.appendChild(imgItem);
-          }
-          if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
-            const audioItem = createAnkiMenuItem(
-              "Anki Audio",
-              "audio",
-              idx,
-              (el, i) => addMediaToAnkiForIndex("audio", i, el)
-            );
-            menuEl.appendChild(audioItem);
-          }
-        });
+        menus.forEach((menuEl) => injectMenuButtons(menuEl));
         clearInterval(interval);
         return;
       }
@@ -3816,11 +3824,31 @@ active_effect
     }, 500);
   }
   let stylesInjected = false;
+  let menuObserver = null;
+  function observeNewMenus() {
+    if (menuObserver) return;
+    menuObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        m.addedNodes.forEach((n) => {
+          if (!(n instanceof Element)) return;
+          if (n.matches && n.matches(".ui.secondary.menu")) {
+            injectMenuButtons(n);
+          }
+          const nested = n.querySelectorAll?.(".ui.secondary.menu");
+          if (nested && nested.length > 0) {
+            nested.forEach((el) => injectMenuButtons(el));
+          }
+        });
+      }
+    });
+    menuObserver.observe(document.body, { childList: true, subtree: true });
+  }
   function init() {
     if (!stylesInjected) {
       injectStyles();
       stylesInjected = true;
     }
+    observeNewMenus();
     setTimeout(insertAnkiButtons, 1e3);
   }
   function isDictionaryPage(u) {

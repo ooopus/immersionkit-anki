@@ -81,6 +81,50 @@ function isExactSearchEnabled(): boolean {
   return !!(wrapper && wrapper.classList.contains('checked'));
 }
 
+function getExampleItems(): Element[] {
+  const desktopItems = Array.from(document.querySelectorAll('.item.mobile.or.lower.hidden'));
+  if (desktopItems.length > 0) return desktopItems;
+  const mobileItems = Array.from(document.querySelectorAll('.item.mobile.only'));
+  return mobileItems;
+}
+
+function resolveAbsoluteUrl(srcAttr: string): string {
+  try { return new URL(srcAttr, window.location.origin).href; } catch { return srcAttr; }
+}
+
+function filenameFromUrl(u: string, fallback: string): string {
+  try {
+    const name = (new URL(u).pathname.split('/').pop() || '').split('?')[0];
+    return decodeURIComponent(name) || fallback;
+  } catch {
+    const p = (u || '').split('/').pop() || '';
+    return decodeURIComponent(p.split('?')[0]) || fallback;
+  }
+}
+
+function findImageInfoAtIndex(index: number): { url: string; filename: string } | null {
+  const items = getExampleItems();
+  if (items.length === 0) return null;
+  let idx = Number.isFinite(index) ? index : 0;
+  if (idx < 0) idx = 0;
+  if (idx >= items.length) idx = items.length - 1;
+  const item = items[idx];
+  if (!item) return null;
+  const img = (item.querySelector('div.ui.medium.image img.ui.image.clickableImage[src]:not([src=""])') ||
+    item.querySelector('div.ui.small.image img.ui.image[src]:not([src=""])')) as HTMLImageElement | null;
+  const srcAttr = (img && img.getAttribute('src')) ? String(img.getAttribute('src')) : '';
+  const hasNonEmptySrcAttr = typeof srcAttr === 'string' && srcAttr.trim().length > 0;
+  if (!img || !hasNonEmptySrcAttr) return null;
+  const absUrl = resolveAbsoluteUrl(srcAttr);
+  const alt = (img.getAttribute('alt') || '').trim();
+  const filename = filenameFromUrl(absUrl, (alt ? `${alt}.jpg` : 'image.jpg'));
+  return { url: absUrl, filename };
+}
+
+function hasImageAtIndex(index: number): boolean {
+  return findImageInfoAtIndex(index) !== null;
+}
+
 async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleIndex: number, triggerEl?: Element) {
   const url = new URL(window.location.href);
   const keywordParam = url.searchParams.get('keyword');
@@ -108,7 +152,12 @@ async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleInd
       }
     }
 
-    if (!apiUrl) {
+    if (mediaType === 'picture') {
+      const info = findImageInfoAtIndex(exampleIndex);
+      if (!info) throw new Error('No in-page image found');
+      apiUrl = info.url;
+      filename = info.filename;
+    } else if (!apiUrl) {
       const examples = await fetchExamples(keyword, {
         exactMatch: isExactSearchEnabled(),
         limit: 0,
@@ -119,9 +168,8 @@ async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleInd
       if (index >= examples.length) index = examples.length - 1;
       const example = examples[index];
       if (!example) throw new Error('No example available');
-      if (mediaType === 'picture' && !example.image) throw new Error('Example has no image');
-      if (mediaType === 'audio' && !example.sound) throw new Error('Example has no audio');
-      const targets = buildMediaTargets(example, mediaType);
+      if (!example.sound) throw new Error('Example has no audio');
+      const targets = buildMediaTargets(example, 'audio');
       apiUrl = targets.apiUrl;
       filename = targets.filename;
     }
@@ -225,57 +273,9 @@ function insertAnkiButtons() {
         });
         return a;
       }
-      const url = new URL(window.location.href);
-      const keywordParam = url.searchParams.get('keyword');
-      const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
-      if (keyword) {
-        fetchExamples(keyword, {
-          exactMatch: isExactSearchEnabled(),
-          limit: 0,
-          sort: 'sentence_length:asc',
-        })
-          .then((examples) => {
-            menus.forEach((menuEl, idx) => {
-              const ex = Array.isArray(examples) ? examples[idx] : undefined;
-              const hasImage = !!(ex && ex.image);
-              if (hasImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
-                const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
-                  addMediaToAnkiForIndex('picture', i, el),
-                );
-                menuEl.appendChild(imgItem);
-              }
-              if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
-                const audioItem = createAnkiMenuItem('Anki Audio', 'audio', idx, (el, i) =>
-                  addMediaToAnkiForIndex('audio', i, el),
-                );
-                menuEl.appendChild(audioItem);
-                // no pre-insertion of open button; it will appear only after successful add
-              }
-            });
-          })
-          .catch(() => {
-            menus.forEach((menuEl, idx) => {
-              if (!menuEl.querySelector('a.item[data-anki="image"]')) {
-                const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
-                  addMediaToAnkiForIndex('picture', i, el),
-                );
-                menuEl.appendChild(imgItem);
-              }
-              if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
-                const audioItem = createAnkiMenuItem('Anki Audio', 'audio', idx, (el, i) =>
-                  addMediaToAnkiForIndex('audio', i, el),
-                );
-                menuEl.appendChild(audioItem);
-              }
-            });
-          })
-          .finally(() => {
-            clearInterval(interval);
-          });
-        return;
-      }
       menus.forEach((menuEl, idx) => {
-        if (!menuEl.querySelector('a.item[data-anki="image"]')) {
+        const showImage = hasImageAtIndex(idx);
+        if (showImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
           const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
             addMediaToAnkiForIndex('picture', i, el),
           );
@@ -307,41 +307,9 @@ function insertAnkiButtons() {
         btn.addEventListener('click', (e) => onClickFn(e.currentTarget as Element));
         return btn;
       }
-      const url = new URL(window.location.href);
-      const keywordParam = url.searchParams.get('keyword');
-      const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
-      if (keyword) {
-        fetchExamples(keyword, {
-          exactMatch: isExactSearchEnabled(),
-          limit: 0,
-          sort: 'sentence_length:asc',
-        })
-          .then((examples) => {
-            const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
-            const ex = Array.isArray(examples) ? examples[Math.max(0, Math.min(idx, examples.length - 1))] : undefined;
-            const hasImage = !!(ex && ex.image);
-            if (hasImage && imageButton) {
-              const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
-              imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
-            }
-            if (soundButton) {
-              const ankiSoundBtn = createAnkiBtn('Anki Audio', 'audio', (el) => addMediaToAnki('audio', el));
-              soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
-            }
-          })
-          .catch(() => {
-            if (imageButton) {
-              const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
-              imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
-            }
-            if (soundButton) {
-              const ankiSoundBtn = createAnkiBtn('Anki Audio', 'audio', (el) => addMediaToAnki('audio', el));
-              soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
-            }
-          });
-        return;
-      }
-      if (imageButton) {
+      const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
+      const showImage = hasImageAtIndex(idx);
+      if (showImage && imageButton) {
         const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
         imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
       }

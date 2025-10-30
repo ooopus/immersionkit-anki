@@ -79,7 +79,7 @@
     rawTitle = rawTitle.replace(/_/g, " ").replace(/\s+/g, " ").trim();
     const titleFolder = toTitleCaseWords(rawTitle);
     const encTitleFolder = encodeURIComponent(titleFolder);
-    const filename = mediaType === "picture" ? example.image || "" : example.sound || "";
+    const filename = example.sound || "";
     const encFilename = encodeURIComponent(filename);
     const directUrl = `${prefix}/${category}/${encTitleFolder}/media/${encFilename}`;
     const rawPath = `media/${category}/${titleFolder}/media/${filename}`;
@@ -3386,7 +3386,7 @@ active_effect
     );
     return b || null;
   }
-  function filenameFromUrl(u, fallback) {
+  function filenameFromUrl$1(u, fallback) {
     try {
       const name = (new URL(u).pathname.split("/").pop() || "").split("?")[0];
       return decodeURIComponent(name) || fallback;
@@ -3498,7 +3498,7 @@ active_effect
     cleanup();
     const finalUrl = captured.fromWriteText || captured.fromCopy;
     if (!finalUrl || !isHttpUrl(finalUrl)) return null;
-    const filename = filenameFromUrl(finalUrl, "audio.mp3");
+    const filename = filenameFromUrl$1(finalUrl, "audio.mp3");
     return { url: finalUrl, filename };
   }
   function ensureOpenEditorControl(triggerEl, noteId) {
@@ -3576,6 +3576,48 @@ active_effect
     const wrapper = label.closest(".ui.checkbox");
     return !!(wrapper && wrapper.classList.contains("checked"));
   }
+  function getExampleItems() {
+    const desktopItems = Array.from(document.querySelectorAll(".item.mobile.or.lower.hidden"));
+    if (desktopItems.length > 0) return desktopItems;
+    const mobileItems = Array.from(document.querySelectorAll(".item.mobile.only"));
+    return mobileItems;
+  }
+  function resolveAbsoluteUrl(srcAttr) {
+    try {
+      return new URL(srcAttr, window.location.origin).href;
+    } catch {
+      return srcAttr;
+    }
+  }
+  function filenameFromUrl(u, fallback) {
+    try {
+      const name = (new URL(u).pathname.split("/").pop() || "").split("?")[0];
+      return decodeURIComponent(name) || fallback;
+    } catch {
+      const p = (u || "").split("/").pop() || "";
+      return decodeURIComponent(p.split("?")[0]) || fallback;
+    }
+  }
+  function findImageInfoAtIndex(index) {
+    const items = getExampleItems();
+    if (items.length === 0) return null;
+    let idx = Number.isFinite(index) ? index : 0;
+    if (idx < 0) idx = 0;
+    if (idx >= items.length) idx = items.length - 1;
+    const item = items[idx];
+    if (!item) return null;
+    const img = item.querySelector('div.ui.medium.image img.ui.image.clickableImage[src]:not([src=""])') || item.querySelector('div.ui.small.image img.ui.image[src]:not([src=""])');
+    const srcAttr = img && img.getAttribute("src") ? String(img.getAttribute("src")) : "";
+    const hasNonEmptySrcAttr = typeof srcAttr === "string" && srcAttr.trim().length > 0;
+    if (!img || !hasNonEmptySrcAttr) return null;
+    const absUrl = resolveAbsoluteUrl(srcAttr);
+    const alt = (img.getAttribute("alt") || "").trim();
+    const filename = filenameFromUrl(absUrl, alt ? `${alt}.jpg` : "image.jpg");
+    return { url: absUrl, filename };
+  }
+  function hasImageAtIndex(index) {
+    return findImageInfoAtIndex(index) !== null;
+  }
   async function addMediaToAnkiForIndex(mediaType, exampleIndex, triggerEl) {
     const url = new URL(window.location.href);
     const keywordParam = url.searchParams.get("keyword");
@@ -3600,7 +3642,12 @@ active_effect
           filename = captured.filename;
         }
       }
-      if (!apiUrl) {
+      if (mediaType === "picture") {
+        const info = findImageInfoAtIndex(exampleIndex);
+        if (!info) throw new Error("No in-page image found");
+        apiUrl = info.url;
+        filename = info.filename;
+      } else if (!apiUrl) {
         const examples = await fetchExamples(keyword, {
           exactMatch: isExactSearchEnabled(),
           limit: 0,
@@ -3611,9 +3658,8 @@ active_effect
         if (index >= examples.length) index = examples.length - 1;
         const example = examples[index];
         if (!example) throw new Error("No example available");
-        if (mediaType === "picture" && !example.image) throw new Error("Example has no image");
-        if (mediaType === "audio" && !example.sound) throw new Error("Example has no audio");
-        const targets = buildMediaTargets(example, mediaType);
+        if (!example.sound) throw new Error("Example has no audio");
+        const targets = buildMediaTargets(example, "audio");
         apiUrl = targets.apiUrl;
         filename = targets.filename;
       }
@@ -3713,65 +3759,9 @@ active_effect
           });
           return a;
         };
-        const url = new URL(window.location.href);
-        const keywordParam = url.searchParams.get("keyword");
-        const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
-        if (keyword) {
-          fetchExamples(keyword, {
-            exactMatch: isExactSearchEnabled(),
-            limit: 0,
-            sort: "sentence_length:asc"
-          }).then((examples) => {
-            menus.forEach((menuEl, idx) => {
-              const ex = Array.isArray(examples) ? examples[idx] : void 0;
-              const hasImage = !!(ex && ex.image);
-              if (hasImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
-                const imgItem = createAnkiMenuItem(
-                  "Anki Image",
-                  "image",
-                  idx,
-                  (el, i) => addMediaToAnkiForIndex("picture", i, el)
-                );
-                menuEl.appendChild(imgItem);
-              }
-              if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
-                const audioItem = createAnkiMenuItem(
-                  "Anki Audio",
-                  "audio",
-                  idx,
-                  (el, i) => addMediaToAnkiForIndex("audio", i, el)
-                );
-                menuEl.appendChild(audioItem);
-              }
-            });
-          }).catch(() => {
-            menus.forEach((menuEl, idx) => {
-              if (!menuEl.querySelector('a.item[data-anki="image"]')) {
-                const imgItem = createAnkiMenuItem(
-                  "Anki Image",
-                  "image",
-                  idx,
-                  (el, i) => addMediaToAnkiForIndex("picture", i, el)
-                );
-                menuEl.appendChild(imgItem);
-              }
-              if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
-                const audioItem = createAnkiMenuItem(
-                  "Anki Audio",
-                  "audio",
-                  idx,
-                  (el, i) => addMediaToAnkiForIndex("audio", i, el)
-                );
-                menuEl.appendChild(audioItem);
-              }
-            });
-          }).finally(() => {
-            clearInterval(interval);
-          });
-          return;
-        }
         menus.forEach((menuEl, idx) => {
-          if (!menuEl.querySelector('a.item[data-anki="image"]')) {
+          const showImage = hasImageAtIndex(idx);
+          if (showImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
             const imgItem = createAnkiMenuItem(
               "Anki Image",
               "image",
@@ -3809,39 +3799,9 @@ active_effect
           return btn;
         };
         clearInterval(interval);
-        const url = new URL(window.location.href);
-        const keywordParam = url.searchParams.get("keyword");
-        const keyword = keywordParam ? decodeURIComponent(keywordParam) : null;
-        if (keyword) {
-          fetchExamples(keyword, {
-            exactMatch: isExactSearchEnabled(),
-            limit: 0,
-            sort: "sentence_length:asc"
-          }).then((examples) => {
-            const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
-            const ex = Array.isArray(examples) ? examples[Math.max(0, Math.min(idx, examples.length - 1))] : void 0;
-            const hasImage = !!(ex && ex.image);
-            if (hasImage && imageButton) {
-              const ankiImgBtn = createAnkiBtn("Anki Image", "image", (el) => addMediaToAnki("picture", el));
-              imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
-            }
-            if (soundButton) {
-              const ankiSoundBtn = createAnkiBtn("Anki Audio", "audio", (el) => addMediaToAnki("audio", el));
-              soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
-            }
-          }).catch(() => {
-            if (imageButton) {
-              const ankiImgBtn = createAnkiBtn("Anki Image", "image", (el) => addMediaToAnki("picture", el));
-              imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
-            }
-            if (soundButton) {
-              const ankiSoundBtn = createAnkiBtn("Anki Audio", "audio", (el) => addMediaToAnki("audio", el));
-              soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
-            }
-          });
-          return;
-        }
-        if (imageButton) {
+        const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
+        const showImage = hasImageAtIndex(idx);
+        if (showImage && imageButton) {
           const ankiImgBtn = createAnkiBtn("Anki Image", "image", (el) => addMediaToAnki("picture", el));
           imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
         }

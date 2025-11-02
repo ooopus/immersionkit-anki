@@ -3576,17 +3576,40 @@ active_effect
     const wrapper = label.closest(".ui.checkbox");
     return !!(wrapper && wrapper.classList.contains("checked"));
   }
-  function getExampleItems() {
-    const desktopItems = Array.from(document.querySelectorAll(".item.mobile.or.lower.hidden"));
-    if (desktopItems.length > 0) return desktopItems;
-    const mobileItems = Array.from(document.querySelectorAll(".item.mobile.only"));
-    return mobileItems;
+  function getExampleGroups() {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) return [];
+    const children = Array.from(container.children);
+    const groups = [];
+    for (let i = 0; i + 4 < children.length; i += 5) {
+      groups.push({
+        exampleDesktop: children[i],
+        buttonSpanDesktop: children[i + 1],
+        exampleMobile: children[i + 2],
+        buttonSpanMobile: children[i + 3],
+        contextMenu: children[i + 4],
+        index: Math.floor(i / 5)
+      });
+    }
+    return groups;
   }
-  function getMenuIndex(menuEl) {
-    const itemEl = menuEl.closest(".item.mobile.or.lower.hidden") || menuEl.closest(".item.mobile.only");
-    const items = getExampleItems();
-    const idx = itemEl ? items.indexOf(itemEl) : -1;
-    return idx >= 0 ? idx : 0;
+  function getExampleItems() {
+    const groups = getExampleGroups();
+    if (groups.length === 0) {
+      const desktopItems = Array.from(document.querySelectorAll(".item.mobile.or.lower.hidden"));
+      if (desktopItems.length > 0) return desktopItems;
+      const mobileItems = Array.from(document.querySelectorAll(".item.mobile.only"));
+      return mobileItems;
+    }
+    return groups.map((g) => g.exampleDesktop);
+  }
+  function getExampleIndexFromMenu(menuEl) {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) return 0;
+    const children = Array.from(container.children);
+    const spanIndex = children.findIndex((child2) => child2.contains(menuEl));
+    if (spanIndex === -1) return 0;
+    return Math.floor(spanIndex / 5);
   }
   function resolveAbsoluteUrl(srcAttr) {
     try {
@@ -3633,6 +3656,17 @@ active_effect
         setTimeout(() => revertButtonState(triggerEl), 2e3);
       }
       console.warn("Cannot determine keyword from URL");
+      return;
+    }
+    const groups = getExampleGroups();
+    const items = getExampleItems();
+    const maxIndex = Math.max(groups.length, items.length);
+    if (exampleIndex < 0 || exampleIndex >= maxIndex) {
+      console.error(`ImmersionKit → Anki: Invalid example index: ${exampleIndex}, max: ${maxIndex - 1}`);
+      if (triggerEl) {
+        setButtonState(triggerEl, "error", "索引错误");
+        setTimeout(() => revertButtonState(triggerEl), 2e3);
+      }
       return;
     }
     const keyword = decodeURIComponent(keywordParam);
@@ -3807,9 +3841,8 @@ active_effect
   function addBothMediaToAnki(triggerEl) {
     return addBothMediaToAnkiForIndex(CONFIG.EXAMPLE_INDEX, triggerEl);
   }
-  function injectMenuButtons(menuEl) {
-    const idx = getMenuIndex(menuEl);
-    const showImage = hasImageAtIndex(idx);
+  function injectMenuButtons(menuEl, exampleIndex, exampleElement) {
+    const showImage = !!exampleElement.querySelector('img[alt*="anime_"], img[alt*="game_"]');
     function createAnkiMenuItem(label, key, index, onClickFn) {
       const a = document.createElement("a");
       a.className = "item";
@@ -3827,7 +3860,7 @@ active_effect
       const bothItem = createAnkiMenuItem(
         "Anki Both",
         "both",
-        idx,
+        exampleIndex,
         (el, i) => addBothMediaToAnkiForIndex(i, el)
       );
       menuEl.appendChild(bothItem);
@@ -3836,7 +3869,7 @@ active_effect
       const imgItem = createAnkiMenuItem(
         "Anki Image",
         "image",
-        idx,
+        exampleIndex,
         (el, i) => addMediaToAnkiForIndex("picture", i, el)
       );
       menuEl.appendChild(imgItem);
@@ -3845,62 +3878,100 @@ active_effect
       const audioItem = createAnkiMenuItem(
         "Anki Audio",
         "audio",
-        idx,
+        exampleIndex,
         (el, i) => addMediaToAnkiForIndex("audio", i, el)
       );
       menuEl.appendChild(audioItem);
     }
+  }
+  function validatePageStructure() {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) {
+      return { valid: false, reason: "No .ui.divided.items container found" };
+    }
+    const children = Array.from(container.children);
+    if (children.length === 0) {
+      return { valid: false, reason: "Container is empty" };
+    }
+    if (children.length % 5 !== 0) {
+      console.warn(`ImmersionKit → Anki: Unexpected children count: ${children.length} (expected multiple of 5)`);
+    }
+    if (children.length >= 5) {
+      const firstExample = children[0];
+      const firstButtonSpan = children[1];
+      const hasExpectedPattern = firstExample?.classList.contains("item") && firstButtonSpan?.tagName === "SPAN" && firstButtonSpan?.querySelector(".ui.secondary.menu");
+      if (!hasExpectedPattern) {
+        return { valid: false, reason: "Structure pattern mismatch" };
+      }
+    }
+    return { valid: true };
   }
   function insertAnkiButtons() {
     let attempts = 0;
     const maxAttempts = 40;
     const interval = setInterval(() => {
       attempts++;
-      const desktopMenus = Array.from(
-        document.querySelectorAll("span.mobile.or.lower.hidden .ui.secondary.menu")
-      );
-      const mobileMenus = Array.from(
-        document.querySelectorAll("span.mobile.only .ui.secondary.menu")
-      );
-      const menus = desktopMenus.length > 0 ? desktopMenus : mobileMenus;
-      if (menus.length > 0) {
-        menus.forEach((menuEl) => injectMenuButtons(menuEl));
-        clearInterval(interval);
+      const validation = validatePageStructure();
+      if (!validation.valid) {
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          console.warn(`ImmersionKit → Anki: ${validation.reason}`);
+        }
         return;
       }
-      const allButtons = Array.from(document.querySelectorAll("button, a, span, div"));
-      const imageButton = allButtons.find((el) => el.textContent && el.textContent.trim() === "Image");
-      const soundButton = allButtons.find((el) => el.textContent && el.textContent.trim() === "Sound");
-      if (imageButton || soundButton) {
-        let createAnkiBtn = function(label, key, onClickFn) {
-          const btn = document.createElement("button");
-          btn.textContent = label;
-          btn.style.marginLeft = "6px";
-          btn.style.padding = "4px 8px";
-          btn.style.fontSize = "90%";
-          btn.style.cursor = "pointer";
-          btn.dataset.anki = key;
-          btn.addEventListener("click", (e) => onClickFn(e.currentTarget));
-          return btn;
-        };
+      const groups = getExampleGroups();
+      if (groups.length > 0) {
         clearInterval(interval);
-        const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
-        const showImage = hasImageAtIndex(idx);
-        if (soundButton) {
-          const ankiBothBtn = createAnkiBtn("Anki Both", "both", (el) => addBothMediaToAnki(el));
-          soundButton.parentNode?.insertBefore(ankiBothBtn, soundButton.nextSibling);
+        console.log(`ImmersionKit → Anki: Found ${groups.length} example groups`);
+        groups.forEach((group) => {
+          const menuDesktop = group.buttonSpanDesktop.querySelector(".ui.secondary.menu");
+          if (menuDesktop) {
+            injectMenuButtons(menuDesktop, group.index, group.exampleDesktop);
+          }
+          const menuMobile = group.buttonSpanMobile.querySelector(".ui.secondary.menu");
+          if (menuMobile) {
+            injectMenuButtons(menuMobile, group.index, group.exampleMobile);
+          }
+        });
+        return;
+      }
+      if (attempts >= maxAttempts / 2) {
+        const allButtons = Array.from(document.querySelectorAll("button, a, span, div"));
+        const imageButton = allButtons.find((el) => el.textContent && el.textContent.trim() === "Image");
+        const soundButton = allButtons.find((el) => el.textContent && el.textContent.trim() === "Sound");
+        if (imageButton || soundButton) {
+          let createAnkiBtn = function(label, key, onClickFn) {
+            const btn = document.createElement("button");
+            btn.textContent = label;
+            btn.style.marginLeft = "6px";
+            btn.style.padding = "4px 8px";
+            btn.style.fontSize = "90%";
+            btn.style.cursor = "pointer";
+            btn.dataset.anki = key;
+            btn.addEventListener("click", (e) => onClickFn(e.currentTarget));
+            return btn;
+          };
+          clearInterval(interval);
+          console.warn("ImmersionKit → Anki: Using fallback button injection method");
+          const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
+          const showImage = hasImageAtIndex(idx);
+          if (soundButton) {
+            const ankiBothBtn = createAnkiBtn("Anki Both", "both", (el) => addBothMediaToAnki(el));
+            soundButton.parentNode?.insertBefore(ankiBothBtn, soundButton.nextSibling);
+          }
+          if (showImage && imageButton) {
+            const ankiImgBtn = createAnkiBtn("Anki Image", "image", (el) => addMediaToAnki("picture", el));
+            imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
+          }
+          if (soundButton) {
+            const ankiSoundBtn = createAnkiBtn("Anki Audio", "audio", (el) => addMediaToAnki("audio", el));
+            soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
+          }
         }
-        if (showImage && imageButton) {
-          const ankiImgBtn = createAnkiBtn("Anki Image", "image", (el) => addMediaToAnki("picture", el));
-          imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
-        }
-        if (soundButton) {
-          const ankiSoundBtn = createAnkiBtn("Anki Audio", "audio", (el) => addMediaToAnki("audio", el));
-          soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
-        }
-      } else if (attempts >= maxAttempts) {
+      }
+      if (attempts >= maxAttempts) {
         clearInterval(interval);
-        console.warn("ImmersionKit → Anki: Could not find Image/Sound buttons");
+        console.warn("ImmersionKit → Anki: Could not inject buttons after max attempts");
       }
     }, 500);
   }
@@ -3913,11 +3984,21 @@ active_effect
         m.addedNodes.forEach((n) => {
           if (!(n instanceof Element)) return;
           if (n.matches && n.matches(".ui.secondary.menu")) {
-            injectMenuButtons(n);
+            const exampleIndex = getExampleIndexFromMenu(n);
+            const groups = getExampleGroups();
+            if (groups[exampleIndex]) {
+              injectMenuButtons(n, exampleIndex, groups[exampleIndex].exampleDesktop);
+            }
           }
           const nested = n.querySelectorAll?.(".ui.secondary.menu");
           if (nested && nested.length > 0) {
-            nested.forEach((el) => injectMenuButtons(el));
+            nested.forEach((el) => {
+              const exampleIndex = getExampleIndexFromMenu(el);
+              const groups = getExampleGroups();
+              if (groups[exampleIndex]) {
+                injectMenuButtons(el, exampleIndex, groups[exampleIndex].exampleDesktop);
+              }
+            });
           }
         });
       }

@@ -157,7 +157,7 @@
   }
   async function attachMedia(noteId, mediaType, media, fieldName) {
     const mediaObject = { url: media.url, filename: media.filename, fields: [fieldName] };
-    const noteUpdate = { id: noteId, fields: {} };
+    const noteUpdate = { id: noteId, fields: { [fieldName]: "" } };
     if (mediaType === "picture") noteUpdate.picture = [mediaObject];
     else noteUpdate.audio = [mediaObject];
     await invokeAnkiConnect("updateNoteFields", { note: noteUpdate });

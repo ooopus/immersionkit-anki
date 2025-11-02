@@ -81,7 +81,7 @@ export async function ensureFieldOnNote(noteId: AnkiNoteId, fieldName: string): 
 
 export async function attachMedia(noteId: AnkiNoteId, mediaType: MediaType, media: { url: string; filename: string }, fieldName: string): Promise<void> {
   const mediaObject: AnkiMediaObject = { url: media.url, filename: media.filename, fields: [fieldName] };
-  const noteUpdate: AnkiUpdateNotePayload = { id: noteId, fields: {} };
+  const noteUpdate: AnkiUpdateNotePayload = { id: noteId, fields: { [fieldName]: '' } };
   if (mediaType === 'picture') noteUpdate.picture = [mediaObject];
   else noteUpdate.audio = [mediaObject];
   await invokeAnkiConnect('updateNoteFields', { note: noteUpdate });

@@ -32,8 +32,30 @@ The build outputs:
 2. **src/userscript/ui.ts** - Core UI logic:
    - Observes DOM for ImmersionKit page structure (dictionary pages only)
    - Dynamically injects "Anki Image", "Anki Audio", "Anki Both" buttons into example menus
-   - Handles two injection strategies: menu-style anchors and button-style fallback
+   - Uses **5-element grouping pattern** to correctly identify page structure
    - Uses MutationObserver to handle SPA-style navigation and dynamically loaded content
+
+### Critical DOM Structure (ImmersionKit)
+
+**⚠️ IMPORTANT**: ImmersionKit uses a specific 5-element pattern per example:
+
+```
+.ui.divided.items (container)
+  ├─ [0] div.item.mobile.or.lower.hidden     (example - desktop)
+  ├─ [1] span.mobile.or.lower.hidden         (buttons container - desktop)
+  │      └─ .ui.secondary.menu               (menu with Mining/Download)
+  ├─ [2] div.item.mobile.only                (example - mobile)
+  ├─ [3] span.mobile.only                    (buttons container - mobile)
+  │      └─ .ui.secondary.menu               (menu - mobile)
+  ├─ [4] nav.react-contextmenu               (right-click menu)
+  └─ ... (next example, same 5-element pattern)
+```
+
+**Key Implementation**:
+- `getExampleGroups()` in ui.ts:102-122 - Returns structured groups using this pattern
+- `getExampleIndexFromMenu()` in ui.ts:144-156 - Calculates index: `Math.floor(spanIndex / 5)`
+- `validatePageStructure()` in ui.ts:440-471 - Validates the 5-element pattern before injection
+- Menu elements are in **sibling elements** of example containers, not nested inside them
 
 ### Core Modules
 
@@ -62,17 +84,25 @@ The build outputs:
 
 ### UI Injection Strategy
 
-The script uses two detection approaches (in ui.ts:insertAnkiButtons):
+The script uses a **primary 5-element grouping strategy** with fallback (ui.ts:476-560):
 
-1. **Menu-based** (preferred): Looks for `.ui.secondary.menu` elements within example items
-   - Desktop: `.item.mobile.or.lower.hidden`
-   - Mobile: `.item.mobile.only`
-   - Injects anchor elements with `data-anki` attributes
+1. **Primary Method** (5-element grouping):
+   - Validates page structure using `validatePageStructure()`
+   - Gets all example groups via `getExampleGroups()`
+   - Iterates through groups and injects into both desktop and mobile menus
+   - Each menu gets: "Anki Both", "Anki Image" (if image exists), "Anki Audio"
+   - Buttons include `data-anki` and `data-anki-index` attributes for tracking
 
-2. **Button-based** (fallback): Searches for "Image" and "Sound" text in buttons
+2. **Fallback Method** (button-based):
+   - Activates if 5-element structure not found after 20 attempts
+   - Searches for legacy "Image" and "Sound" text in buttons
    - Creates new button elements next to existing ones
+   - Used for backwards compatibility if page structure changes
 
-The script handles per-example indexing to support multiple examples on one page (`data-anki-index` attribute).
+3. **Dynamic Content Handling**:
+   - `observeNewMenus()` uses MutationObserver to watch for new content
+   - Re-calculates example index for each dynamically added menu
+   - Ensures buttons appear even on lazy-loaded examples
 
 ### Key Integration Points
 
@@ -88,6 +118,28 @@ The script handles per-example indexing to support multiple examples on one page
 - Supports optional API key authentication
 
 ## Important Patterns
+
+### Index Calculation and Validation
+
+**Critical for correct operation**:
+
+```typescript
+// Get example index from a menu element (ui.ts:144-156)
+function getExampleIndexFromMenu(menuEl: Element): number {
+  const container = document.querySelector('.ui.divided.items');
+  const children = Array.from(container.children);
+  const spanIndex = children.findIndex(child => child.contains(menuEl));
+  return Math.floor(spanIndex / 5); // Divide by 5 due to grouping pattern
+}
+
+// Validate index before operations (ui.ts:207-218)
+const groups = getExampleGroups();
+if (exampleIndex < 0 || exampleIndex >= groups.length) {
+  // Error handling
+}
+```
+
+**Why this matters**: The old method looked for menu inside example containers (wrong), while the correct method recognizes that menus are in sibling span elements at positions 1 and 3 within each 5-element group.
 
 ### Media Attachment Workflow
 1. Extract keyword from URL query parameter (`?keyword=...`)
@@ -123,9 +175,25 @@ Manual testing workflow:
 1. Build with `pnpm run build`
 2. Install `dist/immersionkit-to-anki.user.js` in Tampermonkey
 3. Ensure Anki is running with AnkiConnect addon
-4. Navigate to ImmersionKit dictionary page (e.g., https://www.immersionkit.com/dictionary?keyword=読む)
-5. Verify buttons appear in example menus
-6. Test media attachment to recent/selected notes
+4. Navigate to ImmersionKit dictionary page (e.g., https://www.immersionkit.com/dictionary?keyword=営み&exact=true&sort=sentence_length%3Aasc)
+5. Check browser console for: `ImmersionKit → Anki: Found X example groups`
+6. Verify 3 buttons per example: "Anki Both", "Anki Image" (if image), "Anki Audio"
+7. Test media attachment to recent/selected notes
+
+### Debugging Page Structure Issues
+
+If buttons don't appear:
+
+1. Open browser console and check for validation errors
+2. Verify 5-element pattern:
+   ```javascript
+   // Run in console
+   const container = document.querySelector('.ui.divided.items');
+   console.log('Total children:', container?.children.length);
+   console.log('Should be multiple of 5:', container?.children.length % 5 === 0);
+   ```
+3. Check structure validation logs in ui.ts:440-471
+4. If structure changed, update `validatePageStructure()` and `getExampleGroups()`
 
 ## Configuration Files
 

@@ -254,6 +254,81 @@ function addMediaToAnki(mediaType: 'picture' | 'audio', triggerEl?: Element) {
   return addMediaToAnkiForIndex(mediaType, CONFIG.EXAMPLE_INDEX, triggerEl);
 }
 
+async function addBothMediaToAnkiForIndex(exampleIndex: number, triggerEl?: Element) {
+  const hasImage = hasImageAtIndex(exampleIndex);
+
+  if (triggerEl) setButtonState(triggerEl, 'pending', '添加中…');
+
+  let imageSuccess = false;
+  let audioSuccess = false;
+
+  if (hasImage) {
+    try {
+      if (triggerEl) setButtonState(triggerEl, 'pending', '图片添加中…');
+      await addMediaToAnkiForIndex('picture', exampleIndex, undefined);
+      imageSuccess = true;
+    } catch (err) {
+      console.warn('Failed to add image:', err);
+    }
+  }
+
+  try {
+    if (triggerEl) {
+      if (hasImage && imageSuccess) {
+        setButtonState(triggerEl, 'pending', '图片✓ 音频中…');
+      } else {
+        setButtonState(triggerEl, 'pending', '音频添加中…');
+      }
+    }
+    await addMediaToAnkiForIndex('audio', exampleIndex, undefined);
+    audioSuccess = true;
+  } catch (err) {
+    console.warn('Failed to add audio:', err);
+  }
+
+  if (triggerEl) {
+    if (hasImage && imageSuccess && audioSuccess) {
+      setButtonState(triggerEl, 'success', '已添加 2项');
+      setTimeout(() => revertButtonState(triggerEl), 2000);
+    } else if (!hasImage && audioSuccess) {
+      setButtonState(triggerEl, 'success', '音频已添加');
+      setTimeout(() => revertButtonState(triggerEl), 2000);
+    } else if (hasImage && imageSuccess && !audioSuccess) {
+      setButtonState(triggerEl, 'error', '仅图片成功');
+      setTimeout(() => revertButtonState(triggerEl), 2500);
+    } else if (hasImage && !imageSuccess && audioSuccess) {
+      setButtonState(triggerEl, 'error', '仅音频成功');
+      setTimeout(() => revertButtonState(triggerEl), 2500);
+    } else {
+      setButtonState(triggerEl, 'error', '添加失败');
+      setTimeout(() => revertButtonState(triggerEl), 2500);
+    }
+
+    if (imageSuccess || audioSuccess) {
+      const url = new URL(window.location.href);
+      const keywordParam = url.searchParams.get('keyword');
+      if (keywordParam) {
+        try {
+          let targetNoteIds: number[] = [];
+          if (CONFIG.TARGET_NOTE_MODE === 'selected') {
+            targetNoteIds = await getSelectedNoteIds();
+          } else {
+            const noteId = await getMostRecentNoteId();
+            targetNoteIds = [noteId];
+          }
+          if (targetNoteIds.length > 0) {
+            ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
+          }
+        } catch {}
+      }
+    }
+  }
+}
+
+function addBothMediaToAnki(triggerEl?: Element) {
+  return addBothMediaToAnkiForIndex(CONFIG.EXAMPLE_INDEX, triggerEl);
+}
+
 function injectMenuButtons(menuEl: Element): void {
   const idx = getMenuIndex(menuEl);
   const showImage = hasImageAtIndex(idx);
@@ -270,12 +345,21 @@ function injectMenuButtons(menuEl: Element): void {
     });
     return a;
   }
+
+  if (!menuEl.querySelector('a.item[data-anki="both"]')) {
+    const bothItem = createAnkiMenuItem('Anki Both', 'both', idx, (el, i) =>
+      addBothMediaToAnkiForIndex(i, el),
+    );
+    menuEl.appendChild(bothItem);
+  }
+
   if (showImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
     const imgItem = createAnkiMenuItem('Anki Image', 'image', idx, (el, i) =>
       addMediaToAnkiForIndex('picture', i, el),
     );
     menuEl.appendChild(imgItem);
   }
+
   if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
     const audioItem = createAnkiMenuItem('Anki Audio', 'audio', idx, (el, i) =>
       addMediaToAnkiForIndex('audio', i, el),
@@ -319,10 +403,17 @@ function insertAnkiButtons() {
       }
       const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
       const showImage = hasImageAtIndex(idx);
+
+      if (soundButton) {
+        const ankiBothBtn = createAnkiBtn('Anki Both', 'both', (el) => addBothMediaToAnki(el));
+        soundButton.parentNode?.insertBefore(ankiBothBtn, soundButton.nextSibling);
+      }
+
       if (showImage && imageButton) {
         const ankiImgBtn = createAnkiBtn('Anki Image', 'image', (el) => addMediaToAnki('picture', el));
         imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
       }
+
       if (soundButton) {
         const ankiSoundBtn = createAnkiBtn('Anki Audio', 'audio', (el) => addMediaToAnki('audio', el));
         soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);

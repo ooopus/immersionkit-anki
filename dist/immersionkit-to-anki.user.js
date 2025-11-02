@@ -3781,7 +3781,7 @@ active_effect
     if (hasImage) {
       try {
         if (triggerEl) setButtonState(triggerEl, "pending", "图片添加中…");
-        await addMediaToAnkiForIndex("picture", exampleIndex, void 0);
+        await addMediaToAnkiForIndex("picture", exampleIndex, triggerEl);
         imageSuccess = true;
       } catch (err) {
         console.warn("Failed to add image:", err);
@@ -3795,7 +3795,7 @@ active_effect
           setButtonState(triggerEl, "pending", "音频添加中…");
         }
       }
-      await addMediaToAnkiForIndex("audio", exampleIndex, void 0);
+      await addMediaToAnkiForIndex("audio", exampleIndex, triggerEl);
       audioSuccess = true;
     } catch (err) {
       console.warn("Failed to add audio:", err);

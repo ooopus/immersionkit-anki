@@ -3890,7 +3890,7 @@ item.querySelector('img[src]:not([src=""])');
       });
       return a;
     }
-    if (!menuEl.querySelector('a.item[data-anki="both"]')) {
+    if (showImage && !menuEl.querySelector('a.item[data-anki="both"]')) {
       const bothItem = createAnkiMenuItem(
         "Anki Both",
         "both",

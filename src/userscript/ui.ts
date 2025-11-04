@@ -447,13 +447,15 @@ function injectMenuButtons(menuEl: Element, exampleIndex: number, exampleElement
     return a;
   }
 
-  if (!menuEl.querySelector('a.item[data-anki="both"]')) {
+  // Only show "Anki Both" if there's an image
+  if (showImage && !menuEl.querySelector('a.item[data-anki="both"]')) {
     const bothItem = createAnkiMenuItem('Anki Both', 'both', exampleIndex, (el, i) =>
       addBothMediaToAnkiForIndex(i, el),
     );
     menuEl.appendChild(bothItem);
   }
 
+  // Only show "Anki Image" if there's an image
   if (showImage && !menuEl.querySelector('a.item[data-anki="image"]')) {
     const imgItem = createAnkiMenuItem('Anki Image', 'image', exampleIndex, (el, i) =>
       addMediaToAnkiForIndex('picture', i, el),
@@ -461,6 +463,7 @@ function injectMenuButtons(menuEl: Element, exampleIndex: number, exampleElement
     menuEl.appendChild(imgItem);
   }
 
+  // Always show "Anki Audio"
   if (!menuEl.querySelector('a.item[data-anki="audio"]')) {
     const audioItem = createAnkiMenuItem('Anki Audio', 'audio', exampleIndex, (el, i) =>
       addMediaToAnkiForIndex('audio', i, el),

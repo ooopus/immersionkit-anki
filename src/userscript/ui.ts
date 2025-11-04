@@ -1,5 +1,4 @@
 import { CONFIG } from './config';
-import { fetchExamples, buildMediaTargets } from './immersionkit';
 import { attachMedia, ensureFieldOnNote, getMostRecentNoteId, getSelectedNoteIds } from './anki';
 import { getSuccessText, revertButtonState, setButtonState, injectStyles, showModal } from './dom';
 import { GM_registerMenuCommand } from '$';
@@ -193,21 +192,13 @@ function hasImageAtIndex(index: number): boolean {
 }
 
 async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleIndex: number, triggerEl?: Element) {
-  const url = new URL(window.location.href);
-  const keywordParam = url.searchParams.get('keyword');
-  if (!keywordParam) {
-    if (triggerEl) {
-      setButtonState(triggerEl, 'error', '未检测到关键词');
-      setTimeout(() => revertButtonState(triggerEl), 2000);
-    }
-    console.warn('Cannot determine keyword from URL');
-    return;
-  }
+  console.log(`[Anki] 开始添加媒体: type=${mediaType}, index=${exampleIndex}`);
 
   // Validate example index
   const groups = getExampleGroups();
   const items = getExampleItems();
   const maxIndex = Math.max(groups.length, items.length);
+  console.log(`[Anki] 验证索引: index=${exampleIndex}, maxIndex=${maxIndex - 1}`);
   if (exampleIndex < 0 || exampleIndex >= maxIndex) {
     console.error(`ImmersionKit → Anki: Invalid example index: ${exampleIndex}, max: ${maxIndex - 1}`);
     if (triggerEl) {
@@ -217,64 +208,68 @@ async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleInd
     return;
   }
 
-  const keyword = decodeURIComponent(keywordParam);
   try {
     if (triggerEl) setButtonState(triggerEl, 'pending', '添加中…');
 
     let apiUrl = '';
     let filename = '';
     const fieldName = mediaType === 'picture' ? CONFIG.IMAGE_FIELD_NAME : CONFIG.AUDIO_FIELD_NAME;
-
-    if (mediaType === 'audio') {
-      const captured = await captureAudioUrlFromMining(triggerEl);
-      if (captured && captured.url) {
-        apiUrl = captured.url;
-        filename = captured.filename;
-      }
-    }
+    console.log(`[Anki] 目标字段: ${fieldName}`);
 
     if (mediaType === 'picture') {
+      console.log('[Anki] 查找页面图片...');
       const info = findImageInfoAtIndex(exampleIndex);
-      if (!info) throw new Error('No in-page image found');
+      if (!info) {
+        console.error('[Anki] 未找到页面图片');
+        throw new Error('No in-page image found');
+      }
       apiUrl = info.url;
       filename = info.filename;
-    } else if (!apiUrl) {
-      const examples = await fetchExamples(keyword, {
-        exactMatch: isExactSearchEnabled(),
-        limit: 0,
-        sort: 'sentence_length:asc',
-      });
-      let index = Number.isFinite(exampleIndex) ? exampleIndex : 0;
-      if (index < 0) index = 0;
-      if (index >= examples.length) index = examples.length - 1;
-      const example = examples[index];
-      if (!example) throw new Error('No example available');
-      if (!example.sound) throw new Error('Example has no audio');
-      const targets = buildMediaTargets(example, 'audio');
-      apiUrl = targets.apiUrl;
-      filename = targets.filename;
+      console.log(`[Anki] 找到图片: url=${apiUrl}, filename=${filename}`);
+    } else if (mediaType === 'audio') {
+      console.log('[Anki] 尝试捕获音频URL...');
+      const captured = await captureAudioUrlFromMining(triggerEl);
+      if (!captured || !captured.url) {
+        console.error('[Anki] 未能捕获音频URL');
+        throw new Error('Could not capture audio URL from page');
+      }
+      apiUrl = captured.url;
+      filename = captured.filename;
+      console.log(`[Anki] 捕获到音频: url=${apiUrl}, filename=${filename}`);
     }
+
+    console.log(`[Anki] 获取目标笔记 (mode=${CONFIG.TARGET_NOTE_MODE})...`);
     let targetNoteIds: number[] = [];
     if (CONFIG.TARGET_NOTE_MODE === 'selected') {
       targetNoteIds = await getSelectedNoteIds();
+      console.log(`[Anki] 获取到选中笔记: ${targetNoteIds.join(', ')}`);
       if (!Array.isArray(targetNoteIds) || targetNoteIds.length === 0) {
+        console.error('[Anki] 未检测到选中笔记');
         throw new Error('未检测到选中笔记');
       }
     } else {
       const noteId = await getMostRecentNoteId();
       targetNoteIds = [noteId];
+      console.log(`[Anki] 获取到最近笔记: ${noteId}`);
     }
 
+    console.log(`[Anki] 开始向 ${targetNoteIds.length} 个笔记添加媒体...`);
     let successCount = 0;
     for (const noteId of targetNoteIds) {
       try {
+        console.log(`[Anki] 处理笔记 ${noteId}...`);
+        console.log(`[Anki] 即将调用 ensureFieldOnNote...`);
         await ensureFieldOnNote(noteId, fieldName);
+        console.log(`[Anki] ensureFieldOnNote 完成`);
+        console.log(`[Anki] 字段 "${fieldName}" 验证通过`);
+
         if (CONFIG.CONFIRM_OVERWRITE) {
           const info = (await getNoteInfo(noteId)) as AnkiNoteInfo | null;
           const model = info?.modelName || '';
           const existing = info?.fields?.[fieldName]?.value || '';
           const hasExisting = typeof existing === 'string' && existing.trim().length > 0;
           if (hasExisting) {
+            console.log(`[Anki] 字段已有内容，显示确认对话框`);
             const html = `
               <div class="anki-kv"><div class="key">Note ID</div><div>${noteId}</div></div>
               <div class="anki-kv"><div class="key">Note Type</div><div>${model || '未知'}</div></div>
@@ -289,18 +284,25 @@ async function addMediaToAnkiForIndex(mediaType: 'picture' | 'audio', exampleInd
               danger: true,
             });
             if (!proceed) {
+              console.log(`[Anki] 用户取消覆盖笔记 ${noteId}`);
               continue;
             }
+            console.log(`[Anki] 用户确认覆盖笔记 ${noteId}`);
           }
         }
+
+        console.log(`[Anki] 调用 attachMedia: noteId=${noteId}, mediaType=${mediaType}, url=${apiUrl}, filename=${filename}, field=${fieldName}`);
         await attachMedia(noteId, mediaType, { url: apiUrl, filename }, fieldName);
+        console.log(`[Anki] ✓ 成功添加媒体到笔记 ${noteId}`);
         successCount++;
       } catch (e) {
         // skip this note and continue others
+        console.error(`[Anki] ✗ 添加媒体到笔记 ${noteId} 失败:`, e);
         console.warn('Failed to add media to note', noteId, e);
         continue;
       }
     }
+    console.log(`[Anki] 完成: ${successCount}/${targetNoteIds.length} 个笔记添加成功`);
     if (triggerEl) {
       if (successCount > 0) {
         const total = targetNoteIds.length;

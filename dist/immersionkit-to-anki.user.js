@@ -38,54 +38,6 @@
   var _GM_registerMenuCommand = (() => typeof GM_registerMenuCommand != "undefined" ? GM_registerMenuCommand : void 0)();
   var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
   var _GM_xmlhttpRequest = (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
-  function fetchExamples(keyword, opts = {}) {
-    return new Promise((resolve, reject) => {
-      const params = [`q=${encodeURIComponent(keyword)}`];
-      if (opts.index) params.push(`index=${encodeURIComponent(opts.index)}`);
-      if (typeof opts.exactMatch === "boolean") params.push(`exactMatch=${String(opts.exactMatch)}`);
-      if (typeof opts.limit === "number") params.push(`limit=${String(opts.limit)}`);
-      if (opts.sort) params.push(`sort=${encodeURIComponent(opts.sort)}`);
-      const url = `https://apiv2.immersionkit.com/search?${params.join("&")}`;
-      _GM_xmlhttpRequest({
-        method: "GET",
-        url,
-        onload: (res) => {
-          try {
-            const data = JSON.parse(res.responseText);
-            if (data && Array.isArray(data.examples) && data.examples.length > 0) {
-              resolve(data.examples);
-            } else {
-              reject(new Error("No examples returned from ImmersionKit API"));
-            }
-          } catch (e) {
-            reject(new Error("Failed to parse ImmersionKit API response" + e));
-          }
-        },
-        onerror: () => reject(new Error("Failed to request ImmersionKit API"))
-      });
-    });
-  }
-  function buildMediaTargets(example, mediaType) {
-    const prefix = "https://us-southeast-1.linodeobjects.com/immersionkit/media";
-    let category = "";
-    if (example.id && typeof example.id === "string") {
-      const parts = example.id.split("_");
-      if (parts.length > 0) category = parts[0];
-    }
-    function toTitleCaseWords(s) {
-      return s.split(/\s+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-    }
-    let rawTitle = typeof example.title === "string" ? example.title : "";
-    rawTitle = rawTitle.replace(/_/g, " ").replace(/\s+/g, " ").trim();
-    const titleFolder = toTitleCaseWords(rawTitle);
-    const encTitleFolder = encodeURIComponent(titleFolder);
-    const filename = example.sound || "";
-    const encFilename = encodeURIComponent(filename);
-    const directUrl = `${prefix}/${category}/${encTitleFolder}/media/${encFilename}`;
-    const rawPath = `media/${category}/${titleFolder}/media/${filename}`;
-    const apiUrl = `https://apiv2.immersionkit.com/download_media?path=${encodeURIComponent(rawPath)}`;
-    return { directUrl, apiUrl, filename };
-  }
   function isObject(value) {
     return typeof value === "object" && value !== null;
   }
@@ -96,75 +48,153 @@
     const payload = { action, version: 6, params };
     if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
     const endpoints = [CONFIG.ANKI_CONNECT_URL, "http://localhost:8765"];
+    console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
     return new Promise((resolve, reject) => {
       let tried = 0;
       function tryNext() {
         if (tried >= endpoints.length) {
+          console.error("[AnkiConnect] 所有端点连接失败");
           reject(new Error("Failed to connect to AnkiConnect. Is Anki running?"));
           return;
         }
         const url = endpoints[tried++];
+        console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${tried}/${endpoints.length})`);
         _GM_xmlhttpRequest({
           method: "POST",
           url,
           data: JSON.stringify(payload),
           headers: { "Content-Type": "application/json" },
           onload: (res) => {
+            console.log(`[AnkiConnect] 响应状态: ${res.status}`);
+            console.log(`[AnkiConnect] 响应原始内容 (前500字符):`, res.responseText.substring(0, 500));
             try {
               const data = JSON.parse(res.responseText);
+              console.log(`[AnkiConnect] 解析后的数据:`, data);
               if (hasProp(data, "error") && hasProp(data, "result")) {
                 const envelope = data;
                 if (envelope.error) {
+                  console.error(`[AnkiConnect] API错误: ${envelope.error}`);
                   reject(new Error(envelope.error));
                 } else {
+                  console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, envelope.result);
                   resolve(envelope.result);
                 }
               } else if (hasProp(data, "result")) {
+                console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, data.result);
                 resolve(data.result);
               } else {
+                console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, data);
                 resolve(data);
               }
             } catch (e) {
-              reject(new Error("Failed to parse AnkiConnect response" + e));
+              console.error("[AnkiConnect] 解析响应失败:", e);
+              console.error("[AnkiConnect] 错误堆栈:", e instanceof Error ? e.stack : String(e));
+              console.error("[AnkiConnect] 响应内容:", res.responseText.substring(0, 500));
+              reject(new Error("Failed to parse AnkiConnect response: " + e));
             }
           },
-          onerror: tryNext
+          onerror: (err) => {
+            console.warn(`[AnkiConnect] 连接失败: ${url}`, err);
+            tryNext();
+          }
         });
       }
       tryNext();
     });
   }
   async function getMostRecentNoteId() {
+    console.log("[AnkiConnect] 获取最近笔记ID...");
     const recentCards = await invokeAnkiConnect("findCards", { query: "added:1" });
-    if (!recentCards || recentCards.length === 0) throw new Error("No cards added in the last 24 hours");
+    console.log(`[AnkiConnect] 找到 ${recentCards?.length || 0} 张最近添加的卡片`);
+    if (!recentCards || recentCards.length === 0) {
+      console.error("[AnkiConnect] 过去24小时内未添加卡片");
+      throw new Error("No cards added in the last 24 hours");
+    }
     const mostRecentCard = Math.max(...recentCards);
+    console.log(`[AnkiConnect] 最近卡片ID: ${mostRecentCard}`);
     const noteIds = await invokeAnkiConnect("cardsToNotes", { cards: [mostRecentCard] });
     const noteId = Array.isArray(noteIds) ? noteIds[0] : noteIds;
-    if (!noteId) throw new Error("Could not resolve card to note");
+    if (!noteId) {
+      console.error("[AnkiConnect] 无法将卡片解析为笔记");
+      throw new Error("Could not resolve card to note");
+    }
+    console.log(`[AnkiConnect] 最近笔记ID: ${noteId}`);
     return noteId;
   }
   async function getNoteInfo(noteId) {
+    console.log(`[AnkiConnect] getNoteInfo: noteId=${noteId}`);
     const noteInfoList = await invokeAnkiConnect("notesInfo", { notes: [noteId] });
+    console.log(`[AnkiConnect] getNoteInfo 返回数据:`, noteInfoList);
     const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
+    console.log(`[AnkiConnect] getNoteInfo 解析后:`, noteInfo);
     return noteInfo || null;
   }
   async function ensureFieldOnNote(noteId, fieldName) {
+    console.log(`[AnkiConnect] 验证字段: noteId=${noteId}, fieldName="${fieldName}"`);
     const noteInfoList = await invokeAnkiConnect("notesInfo", { notes: [noteId] });
     const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
-    if (!noteInfo || !noteInfo.fields || !(fieldName in noteInfo.fields)) {
-      throw new Error(`Field “${fieldName}” does not exist on the note`);
+    if (!noteInfo) {
+      console.error(`[AnkiConnect] 未找到笔记: ${noteId}`);
+      throw new Error(`Note ${noteId} not found`);
     }
+    console.log(`[AnkiConnect] 笔记类型: ${noteInfo.modelName}`);
+    console.log(`[AnkiConnect] 可用字段: ${Object.keys(noteInfo.fields || {}).join(", ")}`);
+    if (!noteInfo.fields || !(fieldName in noteInfo.fields)) {
+      console.error(`[AnkiConnect] 字段 "${fieldName}" 不存在于笔记上`);
+      throw new Error(`Field "${fieldName}" does not exist on the note`);
+    }
+    console.log(`[AnkiConnect] ✓ 字段验证通过`);
   }
   async function attachMedia(noteId, mediaType, media, fieldName) {
-    const mediaObject = { url: media.url, filename: media.filename, fields: [fieldName] };
-    const noteUpdate = { id: noteId, fields: { [fieldName]: "" } };
-    if (mediaType === "picture") noteUpdate.picture = [mediaObject];
-    else noteUpdate.audio = [mediaObject];
-    await invokeAnkiConnect("updateNoteFields", { note: noteUpdate });
+    console.log(`[AnkiConnect] attachMedia 开始: noteId=${noteId}, mediaType=${mediaType}, url=${media.url}, filename=${media.filename}, field=${fieldName}`);
+    try {
+      console.log("[AnkiConnect] 步骤1: 下载媒体文件到 Anki...");
+      const storedFilename = await invokeAnkiConnect("storeMediaFile", {
+        filename: media.filename,
+        url: media.url
+      });
+      console.log(`[AnkiConnect] 媒体文件已存储: ${storedFilename}`);
+      let fieldValue = "";
+      if (mediaType === "picture") {
+        fieldValue = `<img src="${storedFilename}">`;
+        console.log(`[AnkiConnect] 构建图片字段值: ${fieldValue}`);
+      } else {
+        fieldValue = `[sound:${storedFilename}]`;
+        console.log(`[AnkiConnect] 构建音频字段值: ${fieldValue}`);
+      }
+      console.log("[AnkiConnect] 步骤2: 更新笔记字段...");
+      await invokeAnkiConnect("updateNoteFields", {
+        note: {
+          id: noteId,
+          fields: {
+            [fieldName]: fieldValue
+          }
+        }
+      });
+      console.log("[AnkiConnect] 字段更新请求已发送");
+      console.log("[AnkiConnect] 步骤3: 验证字段是否真的更新了...");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const updatedNoteInfo = await getNoteInfo(noteId);
+      console.log("[AnkiConnect] 更新后的笔记信息:", updatedNoteInfo);
+      const actualFieldValue = updatedNoteInfo?.fields?.[fieldName]?.value || "";
+      console.log(`[AnkiConnect] 字段 "${fieldName}" 的实际值:`, actualFieldValue);
+      if (!actualFieldValue || actualFieldValue.trim().length === 0) {
+        console.error(`[AnkiConnect] ✗ 验证失败: 字段 "${fieldName}" 为空！`);
+        throw new Error(`Field "${fieldName}" is still empty after update`);
+      }
+      console.log("[AnkiConnect] ✓ 验证通过: 字段已有内容");
+      console.log("[AnkiConnect] ✓ 媒体附加成功");
+    } catch (error) {
+      console.error("[AnkiConnect] ✗ attachMedia 失败:", error);
+      throw error;
+    }
   }
   async function getSelectedNoteIds() {
+    console.log("[AnkiConnect] 获取选中笔记ID...");
     const ids = await invokeAnkiConnect("guiSelectedNotes");
-    return Array.isArray(ids) ? ids : [];
+    const result = Array.isArray(ids) ? ids : [];
+    console.log(`[AnkiConnect] 选中笔记数量: ${result.length}`, result);
+    return result;
   }
   async function openNoteEditor(noteId) {
     await invokeAnkiConnect("guiEditNote", { note: noteId });
@@ -3569,13 +3599,6 @@ active_effect
       openBtn.dataset.ankiOpenId = String(noteId);
     }
   }
-  function isExactSearchEnabled() {
-    const labels = Array.from(document.querySelectorAll("div.ui.checkbox label"));
-    const label = labels.find((el) => el.textContent?.trim() === "Exact Search");
-    if (!label) return false;
-    const wrapper = label.closest(".ui.checkbox");
-    return !!(wrapper && wrapper.classList.contains("checked"));
-  }
   function getExampleGroups() {
     const container = document.querySelector(".ui.divided.items");
     if (!container) return [];
@@ -3648,19 +3671,11 @@ active_effect
     return findImageInfoAtIndex(index) !== null;
   }
   async function addMediaToAnkiForIndex(mediaType, exampleIndex, triggerEl) {
-    const url = new URL(window.location.href);
-    const keywordParam = url.searchParams.get("keyword");
-    if (!keywordParam) {
-      if (triggerEl) {
-        setButtonState(triggerEl, "error", "未检测到关键词");
-        setTimeout(() => revertButtonState(triggerEl), 2e3);
-      }
-      console.warn("Cannot determine keyword from URL");
-      return;
-    }
+    console.log(`[Anki] 开始添加媒体: type=${mediaType}, index=${exampleIndex}`);
     const groups = getExampleGroups();
     const items = getExampleItems();
     const maxIndex = Math.max(groups.length, items.length);
+    console.log(`[Anki] 验证索引: index=${exampleIndex}, maxIndex=${maxIndex - 1}`);
     if (exampleIndex < 0 || exampleIndex >= maxIndex) {
       console.error(`ImmersionKit → Anki: Invalid example index: ${exampleIndex}, max: ${maxIndex - 1}`);
       if (triggerEl) {
@@ -3669,60 +3684,63 @@ active_effect
       }
       return;
     }
-    const keyword = decodeURIComponent(keywordParam);
     try {
       if (triggerEl) setButtonState(triggerEl, "pending", "添加中…");
       let apiUrl = "";
       let filename = "";
       const fieldName = mediaType === "picture" ? CONFIG.IMAGE_FIELD_NAME : CONFIG.AUDIO_FIELD_NAME;
-      if (mediaType === "audio") {
-        const captured = await captureAudioUrlFromMining(triggerEl);
-        if (captured && captured.url) {
-          apiUrl = captured.url;
-          filename = captured.filename;
-        }
-      }
+      console.log(`[Anki] 目标字段: ${fieldName}`);
       if (mediaType === "picture") {
+        console.log("[Anki] 查找页面图片...");
         const info = findImageInfoAtIndex(exampleIndex);
-        if (!info) throw new Error("No in-page image found");
+        if (!info) {
+          console.error("[Anki] 未找到页面图片");
+          throw new Error("No in-page image found");
+        }
         apiUrl = info.url;
         filename = info.filename;
-      } else if (!apiUrl) {
-        const examples = await fetchExamples(keyword, {
-          exactMatch: isExactSearchEnabled(),
-          limit: 0,
-          sort: "sentence_length:asc"
-        });
-        let index = Number.isFinite(exampleIndex) ? exampleIndex : 0;
-        if (index < 0) index = 0;
-        if (index >= examples.length) index = examples.length - 1;
-        const example = examples[index];
-        if (!example) throw new Error("No example available");
-        if (!example.sound) throw new Error("Example has no audio");
-        const targets = buildMediaTargets(example, "audio");
-        apiUrl = targets.apiUrl;
-        filename = targets.filename;
+        console.log(`[Anki] 找到图片: url=${apiUrl}, filename=${filename}`);
+      } else if (mediaType === "audio") {
+        console.log("[Anki] 尝试捕获音频URL...");
+        const captured = await captureAudioUrlFromMining(triggerEl);
+        if (!captured || !captured.url) {
+          console.error("[Anki] 未能捕获音频URL");
+          throw new Error("Could not capture audio URL from page");
+        }
+        apiUrl = captured.url;
+        filename = captured.filename;
+        console.log(`[Anki] 捕获到音频: url=${apiUrl}, filename=${filename}`);
       }
+      console.log(`[Anki] 获取目标笔记 (mode=${CONFIG.TARGET_NOTE_MODE})...`);
       let targetNoteIds = [];
       if (CONFIG.TARGET_NOTE_MODE === "selected") {
         targetNoteIds = await getSelectedNoteIds();
+        console.log(`[Anki] 获取到选中笔记: ${targetNoteIds.join(", ")}`);
         if (!Array.isArray(targetNoteIds) || targetNoteIds.length === 0) {
+          console.error("[Anki] 未检测到选中笔记");
           throw new Error("未检测到选中笔记");
         }
       } else {
         const noteId = await getMostRecentNoteId();
         targetNoteIds = [noteId];
+        console.log(`[Anki] 获取到最近笔记: ${noteId}`);
       }
+      console.log(`[Anki] 开始向 ${targetNoteIds.length} 个笔记添加媒体...`);
       let successCount = 0;
       for (const noteId of targetNoteIds) {
         try {
+          console.log(`[Anki] 处理笔记 ${noteId}...`);
+          console.log(`[Anki] 即将调用 ensureFieldOnNote...`);
           await ensureFieldOnNote(noteId, fieldName);
+          console.log(`[Anki] ensureFieldOnNote 完成`);
+          console.log(`[Anki] 字段 "${fieldName}" 验证通过`);
           if (CONFIG.CONFIRM_OVERWRITE) {
             const info = await getNoteInfo(noteId);
             const model = info?.modelName || "";
             const existing = info?.fields?.[fieldName]?.value || "";
             const hasExisting = typeof existing === "string" && existing.trim().length > 0;
             if (hasExisting) {
+              console.log(`[Anki] 字段已有内容，显示确认对话框`);
               const html = `
               <div class="anki-kv"><div class="key">Note ID</div><div>${noteId}</div></div>
               <div class="anki-kv"><div class="key">Note Type</div><div>${model || "未知"}</div></div>
@@ -3737,17 +3755,23 @@ active_effect
                 danger: true
               });
               if (!proceed) {
+                console.log(`[Anki] 用户取消覆盖笔记 ${noteId}`);
                 continue;
               }
+              console.log(`[Anki] 用户确认覆盖笔记 ${noteId}`);
             }
           }
+          console.log(`[Anki] 调用 attachMedia: noteId=${noteId}, mediaType=${mediaType}, url=${apiUrl}, filename=${filename}, field=${fieldName}`);
           await attachMedia(noteId, mediaType, { url: apiUrl, filename }, fieldName);
+          console.log(`[Anki] ✓ 成功添加媒体到笔记 ${noteId}`);
           successCount++;
         } catch (e) {
+          console.error(`[Anki] ✗ 添加媒体到笔记 ${noteId} 失败:`, e);
           console.warn("Failed to add media to note", noteId, e);
           continue;
         }
       }
+      console.log(`[Anki] 完成: ${successCount}/${targetNoteIds.length} 个笔记添加成功`);
       if (triggerEl) {
         if (successCount > 0) {
           const total = targetNoteIds.length;

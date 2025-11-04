@@ -1,5 +1,5 @@
 import { CONFIG } from './config';
-import type { AnkiCardId, AnkiMediaObject, AnkiNoteId, AnkiNoteInfo, AnkiUpdateNotePayload, MediaType } from './types';
+import type { AnkiCardId, AnkiNoteId, AnkiNoteInfo, MediaType } from './types';
 import { GM_xmlhttpRequest } from '$';
 
 type AnkiConnectResult<T> = { result: T; error: string | null };

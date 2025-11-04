@@ -3572,32 +3572,6 @@ active_effect
         return;
       }
     }
-    const audioButton = document.querySelector('button[data-anki="audio"]');
-    if (audioButton) {
-      let openBtn = audioButton.parentElement?.querySelector('button[data-anki="open"]');
-      if (!openBtn) {
-        openBtn = document.createElement("button");
-        openBtn.dataset.anki = "open";
-        openBtn.textContent = "打开";
-        openBtn.style.marginLeft = "6px";
-        openBtn.style.padding = "4px 8px";
-        openBtn.style.fontSize = "90%";
-        openBtn.style.cursor = "pointer";
-        openBtn.addEventListener("click", async (e) => {
-          e.preventDefault();
-          const idStr = e.currentTarget.dataset.ankiOpenId;
-          const id = idStr ? Number(idStr) : NaN;
-          if (Number.isFinite(id)) {
-            try {
-              await openNoteEditor(id);
-            } catch {
-            }
-          }
-        });
-        audioButton.parentNode?.insertBefore(openBtn, audioButton.nextSibling);
-      }
-      openBtn.dataset.ankiOpenId = String(noteId);
-    }
   }
   function getExampleGroups() {
     const container = document.querySelector(".ui.divided.items");
@@ -3618,12 +3592,6 @@ active_effect
   }
   function getExampleItems() {
     const groups = getExampleGroups();
-    if (groups.length === 0) {
-      const desktopItems = Array.from(document.querySelectorAll(".item.mobile.or.lower.hidden"));
-      if (desktopItems.length > 0) return desktopItems;
-      const mobileItems = Array.from(document.querySelectorAll(".item.mobile.only"));
-      return mobileItems;
-    }
     return groups.map((g) => g.exampleDesktop);
   }
   function getExampleIndexFromMenu(menuEl) {
@@ -3658,8 +3626,7 @@ active_effect
     if (idx >= items.length) idx = items.length - 1;
     const item = items[idx];
     if (!item) return null;
-    const img = item.querySelector('div.ui.medium.image img.ui.image.clickableImage[src]:not([src=""])') || item.querySelector('div.ui.small.image img.ui.image[src]:not([src=""])') || item.querySelector('img.ui.image[src]:not([src=""])') ||
-item.querySelector('img[src]:not([src=""])');
+    const img = item.querySelector('div.ui.medium.image img.ui.image.clickableImage[src]:not([src=""])') || item.querySelector('div.ui.small.image img.ui.image[src]:not([src=""])') || item.querySelector('img[src]:not([src=""])');
     if (!img) {
       console.log(`[Anki] 例句 ${index}: 未找到图片元素`);
       return null;
@@ -3803,9 +3770,6 @@ item.querySelector('img[src]:not([src=""])');
       console.error("Failed to add " + mediaType, err);
     }
   }
-  function addMediaToAnki(mediaType, triggerEl) {
-    return addMediaToAnkiForIndex(mediaType, CONFIG.EXAMPLE_INDEX, triggerEl);
-  }
   async function addBothMediaToAnkiForIndex(exampleIndex, triggerEl) {
     const hasImage = hasImageAtIndex(exampleIndex);
     if (triggerEl) setButtonState(triggerEl, "pending", "添加中…");
@@ -3871,10 +3835,7 @@ item.querySelector('img[src]:not([src=""])');
       }
     }
   }
-  function addBothMediaToAnki(triggerEl) {
-    return addBothMediaToAnkiForIndex(CONFIG.EXAMPLE_INDEX, triggerEl);
-  }
-  function injectMenuButtons(menuEl, exampleIndex, exampleElement) {
+  function injectMenuButtons(menuEl, exampleIndex) {
     const showImage = hasImageAtIndex(exampleIndex);
     console.log(`[Anki] 例句 ${exampleIndex} 图片检测: ${showImage}`);
     function createAnkiMenuItem(label, key, index, onClickFn) {
@@ -3960,48 +3921,14 @@ item.querySelector('img[src]:not([src=""])');
         groups.forEach((group) => {
           const menuDesktop = group.buttonSpanDesktop.querySelector(".ui.secondary.menu");
           if (menuDesktop) {
-            injectMenuButtons(menuDesktop, group.index, group.exampleDesktop);
+            injectMenuButtons(menuDesktop, group.index);
           }
           const menuMobile = group.buttonSpanMobile.querySelector(".ui.secondary.menu");
           if (menuMobile) {
-            injectMenuButtons(menuMobile, group.index, group.exampleMobile);
+            injectMenuButtons(menuMobile, group.index);
           }
         });
         return;
-      }
-      if (attempts >= maxAttempts / 2) {
-        const allButtons = Array.from(document.querySelectorAll("button, a, span, div"));
-        const imageButton = allButtons.find((el) => el.textContent && el.textContent.trim() === "Image");
-        const soundButton = allButtons.find((el) => el.textContent && el.textContent.trim() === "Sound");
-        if (imageButton || soundButton) {
-          let createAnkiBtn = function(label, key, onClickFn) {
-            const btn = document.createElement("button");
-            btn.textContent = label;
-            btn.style.marginLeft = "6px";
-            btn.style.padding = "4px 8px";
-            btn.style.fontSize = "90%";
-            btn.style.cursor = "pointer";
-            btn.dataset.anki = key;
-            btn.addEventListener("click", (e) => onClickFn(e.currentTarget));
-            return btn;
-          };
-          clearInterval(interval);
-          console.warn("ImmersionKit → Anki: Using fallback button injection method");
-          const idx = Number.isFinite(CONFIG.EXAMPLE_INDEX) ? CONFIG.EXAMPLE_INDEX : 0;
-          const showImage = hasImageAtIndex(idx);
-          if (soundButton) {
-            const ankiBothBtn = createAnkiBtn("Anki Both", "both", (el) => addBothMediaToAnki(el));
-            soundButton.parentNode?.insertBefore(ankiBothBtn, soundButton.nextSibling);
-          }
-          if (showImage && imageButton) {
-            const ankiImgBtn = createAnkiBtn("Anki Image", "image", (el) => addMediaToAnki("picture", el));
-            imageButton.parentNode?.insertBefore(ankiImgBtn, imageButton.nextSibling);
-          }
-          if (soundButton) {
-            const ankiSoundBtn = createAnkiBtn("Anki Audio", "audio", (el) => addMediaToAnki("audio", el));
-            soundButton.parentNode?.insertBefore(ankiSoundBtn, soundButton.nextSibling);
-          }
-        }
       }
       if (attempts >= maxAttempts) {
         clearInterval(interval);
@@ -4021,7 +3948,7 @@ item.querySelector('img[src]:not([src=""])');
             const exampleIndex = getExampleIndexFromMenu(n);
             const groups = getExampleGroups();
             if (groups[exampleIndex]) {
-              injectMenuButtons(n, exampleIndex, groups[exampleIndex].exampleDesktop);
+              injectMenuButtons(n, exampleIndex);
             }
           }
           const nested = n.querySelectorAll?.(".ui.secondary.menu");
@@ -4030,7 +3957,7 @@ item.querySelector('img[src]:not([src=""])');
               const exampleIndex = getExampleIndexFromMenu(el);
               const groups = getExampleGroups();
               if (groups[exampleIndex]) {
-                injectMenuButtons(el, exampleIndex, groups[exampleIndex].exampleDesktop);
+                injectMenuButtons(el, exampleIndex);
               }
             });
           }

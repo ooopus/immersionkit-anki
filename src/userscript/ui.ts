@@ -176,14 +176,31 @@ function findImageInfoAtIndex(index: number): { url: string; filename: string } 
   if (idx >= items.length) idx = items.length - 1;
   const item = items[idx];
   if (!item) return null;
-  const img = (item.querySelector('div.ui.medium.image img.ui.image.clickableImage[src]:not([src=""])') ||
-    item.querySelector('div.ui.small.image img.ui.image[src]:not([src=""])')) as HTMLImageElement | null;
-  const srcAttr = (img && img.getAttribute('src')) ? String(img.getAttribute('src')) : '';
+
+  // Try multiple selectors in order of specificity
+  const img = (
+    item.querySelector('div.ui.medium.image img.ui.image.clickableImage[src]:not([src=""])') ||
+    item.querySelector('div.ui.small.image img.ui.image[src]:not([src=""])') ||
+    item.querySelector('img.ui.image[src]:not([src=""])') || // More generic
+    item.querySelector('img[src]:not([src=""])') // Most generic
+  ) as HTMLImageElement | null;
+
+  if (!img) {
+    console.log(`[Anki] 例句 ${index}: 未找到图片元素`);
+    return null;
+  }
+
+  const srcAttr = img.getAttribute('src') || '';
   const hasNonEmptySrcAttr = typeof srcAttr === 'string' && srcAttr.trim().length > 0;
-  if (!img || !hasNonEmptySrcAttr) return null;
+  if (!hasNonEmptySrcAttr) {
+    console.log(`[Anki] 例句 ${index}: 图片 src 属性为空`);
+    return null;
+  }
+
   const absUrl = resolveAbsoluteUrl(srcAttr);
   const alt = (img.getAttribute('alt') || '').trim();
   const filename = filenameFromUrl(absUrl, (alt ? `${alt}.jpg` : 'image.jpg'));
+  console.log(`[Anki] 例句 ${index}: 找到图片 url=${absUrl}, filename=${filename}`);
   return { url: absUrl, filename };
 }
 
@@ -409,10 +426,12 @@ function addBothMediaToAnki(triggerEl?: Element) {
  * Inject Anki buttons into a menu element.
  * @param menuEl - The .ui.secondary.menu element to inject buttons into
  * @param exampleIndex - The index of the example this menu corresponds to
- * @param exampleElement - The example element to check for images
+ * @param exampleElement - The example element to check for images (unused, kept for compatibility)
  */
 function injectMenuButtons(menuEl: Element, exampleIndex: number, exampleElement: Element): void {
-  const showImage = !!exampleElement.querySelector('img[alt*="anime_"], img[alt*="game_"]');
+  // Use hasImageAtIndex for proper image detection
+  const showImage = hasImageAtIndex(exampleIndex);
+  console.log(`[Anki] 例句 ${exampleIndex} 图片检测: ${showImage}`);
 
   function createAnkiMenuItem(label: string, key: string, index: number, onClickFn: (el: Element, i: number) => void) {
     const a = document.createElement('a');

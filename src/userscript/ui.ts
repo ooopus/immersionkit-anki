@@ -21,7 +21,6 @@ function isTextInputTarget(target: EventTarget | null): boolean {
 }
 
 async function handleEditorShortcut(e: KeyboardEvent) {
-  if (!CONFIG.OPEN_EDITOR_ON_KEY) return;
   const shortcut = (CONFIG.OPEN_EDITOR_KEY || '').trim();
   if (!shortcut) return;
 
@@ -368,10 +367,6 @@ async function addMediaToAnkiForIndex(
   }
 }
 
-function addMediaToAnki(mediaType: 'picture' | 'audio', triggerEl?: Element) {
-  return addMediaToAnkiForIndex(mediaType, CONFIG.EXAMPLE_INDEX, triggerEl);
-}
-
 async function addBothMediaToAnkiForIndex(exampleIndex: number, triggerEl?: Element) {
   const hasImage = hasImageAtIndex(exampleIndex);
   const buttonEl = triggerEl || undefined;
@@ -446,10 +441,6 @@ async function addBothMediaToAnkiForIndex(exampleIndex: number, triggerEl?: Elem
       } catch { }
     }
   }
-}
-
-function addBothMediaToAnki(triggerEl?: Element) {
-  return addBothMediaToAnkiForIndex(CONFIG.EXAMPLE_INDEX, triggerEl);
 }
 
 /**

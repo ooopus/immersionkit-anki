@@ -3646,7 +3646,7 @@ active_effect
   function hasImageAtIndex(index) {
     return findImageInfoAtIndex(index) !== null;
   }
-  async function addMediaToAnkiForIndex(mediaType, exampleIndex, triggerEl) {
+  async function addMediaToAnkiForIndex(mediaType, exampleIndex, triggerEl, options) {
     console.log(`[Anki] 开始添加媒体: type=${mediaType}, index=${exampleIndex}`);
     const groups = getExampleGroups();
     const items = getExampleItems();
@@ -3654,14 +3654,16 @@ active_effect
     console.log(`[Anki] 验证索引: index=${exampleIndex}, maxIndex=${maxIndex - 1}`);
     if (exampleIndex < 0 || exampleIndex >= maxIndex) {
       console.error(`ImmersionKit → Anki: Invalid example index: ${exampleIndex}, max: ${maxIndex - 1}`);
-      if (triggerEl) {
+      if (triggerEl && !options?.skipButtonState) {
         setButtonState(triggerEl, "error", "索引错误");
         setTimeout(() => revertButtonState(triggerEl), 2e3);
       }
-      return;
+      return false;
     }
+    const buttonEl = options?.skipButtonState ? void 0 : triggerEl;
+    const allowEnsureOpen = !options?.skipEnsureOpen;
     try {
-      if (triggerEl) setButtonState(triggerEl, "pending", "添加中…");
+      if (buttonEl) setButtonState(buttonEl, "pending", "添加中…");
       let apiUrl = "";
       let filename = "";
       const fieldName = mediaType === "picture" ? CONFIG.IMAGE_FIELD_NAME : CONFIG.AUDIO_FIELD_NAME;
@@ -3748,89 +3750,96 @@ active_effect
         }
       }
       console.log(`[Anki] 完成: ${successCount}/${targetNoteIds.length} 个笔记添加成功`);
-      if (triggerEl) {
-        if (successCount > 0) {
+      if (successCount > 0) {
+        if (buttonEl) {
           const total = targetNoteIds.length;
           const text = total > 1 ? `已添加 ${successCount}/${total}` : getSuccessText(mediaType);
-          setButtonState(triggerEl, "success", text);
-          setTimeout(() => revertButtonState(triggerEl), 2e3);
-          if (total >= 1) {
-            ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
-          }
-        } else {
-          setButtonState(triggerEl, "error", "添加失败");
-          setTimeout(() => revertButtonState(triggerEl), 2500);
+          setButtonState(buttonEl, "success", text);
+          setTimeout(() => revertButtonState(buttonEl), 2e3);
         }
+        if (allowEnsureOpen && triggerEl && targetNoteIds.length >= 1) {
+          ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
+        }
+      } else if (buttonEl) {
+        setButtonState(buttonEl, "error", "添加失败");
+        setTimeout(() => revertButtonState(buttonEl), 2500);
       }
+      return successCount > 0;
     } catch (err) {
-      if (triggerEl) {
-        setButtonState(triggerEl, "error", "添加失败");
-        setTimeout(() => revertButtonState(triggerEl), 2500);
+      if (buttonEl) {
+        setButtonState(buttonEl, "error", "添加失败");
+        setTimeout(() => revertButtonState(buttonEl), 2500);
       }
       console.error("Failed to add " + mediaType, err);
+      return false;
     }
   }
   async function addBothMediaToAnkiForIndex(exampleIndex, triggerEl) {
     const hasImage = hasImageAtIndex(exampleIndex);
-    if (triggerEl) setButtonState(triggerEl, "pending", "添加中…");
+    const buttonEl = triggerEl || void 0;
+    if (buttonEl) setButtonState(buttonEl, "pending", "添加中…");
     let imageSuccess = false;
     let audioSuccess = false;
     if (hasImage) {
       try {
-        if (triggerEl) setButtonState(triggerEl, "pending", "图片添加中…");
-        await addMediaToAnkiForIndex("picture", exampleIndex, triggerEl);
-        imageSuccess = true;
+        if (buttonEl) setButtonState(buttonEl, "pending", "图片添加中…");
+        imageSuccess = await addMediaToAnkiForIndex("picture", exampleIndex, triggerEl, {
+          skipButtonState: true,
+          skipEnsureOpen: true
+        });
       } catch (err) {
         console.warn("Failed to add image:", err);
       }
     }
     try {
-      if (triggerEl) {
+      if (buttonEl) {
         if (hasImage && imageSuccess) {
-          setButtonState(triggerEl, "pending", "图片✓ 音频中…");
+          setButtonState(buttonEl, "pending", "图片✓ 音频中…");
         } else {
-          setButtonState(triggerEl, "pending", "音频添加中…");
+          setButtonState(buttonEl, "pending", "音频添加中…");
         }
       }
-      await addMediaToAnkiForIndex("audio", exampleIndex, triggerEl);
-      audioSuccess = true;
+      audioSuccess = await addMediaToAnkiForIndex("audio", exampleIndex, triggerEl, {
+        skipButtonState: true,
+        skipEnsureOpen: true
+      });
     } catch (err) {
       console.warn("Failed to add audio:", err);
     }
-    if (triggerEl) {
+    if (buttonEl) {
       if (hasImage && imageSuccess && audioSuccess) {
-        setButtonState(triggerEl, "success", "已添加 2项");
-        setTimeout(() => revertButtonState(triggerEl), 2e3);
+        setButtonState(buttonEl, "success", "已添加 2项");
+        setTimeout(() => revertButtonState(buttonEl), 2e3);
       } else if (!hasImage && audioSuccess) {
-        setButtonState(triggerEl, "success", "音频已添加");
-        setTimeout(() => revertButtonState(triggerEl), 2e3);
+        setButtonState(buttonEl, "success", "音频已添加");
+        setTimeout(() => revertButtonState(buttonEl), 2e3);
       } else if (hasImage && imageSuccess && !audioSuccess) {
-        setButtonState(triggerEl, "error", "仅图片成功");
-        setTimeout(() => revertButtonState(triggerEl), 2500);
+        setButtonState(buttonEl, "error", "仅图片成功");
+        setTimeout(() => revertButtonState(buttonEl), 2500);
       } else if (hasImage && !imageSuccess && audioSuccess) {
-        setButtonState(triggerEl, "error", "仅音频成功");
-        setTimeout(() => revertButtonState(triggerEl), 2500);
+        setButtonState(buttonEl, "error", "仅音频成功");
+        setTimeout(() => revertButtonState(buttonEl), 2500);
       } else {
-        setButtonState(triggerEl, "error", "添加失败");
-        setTimeout(() => revertButtonState(triggerEl), 2500);
+        setButtonState(buttonEl, "error", "添加失败");
+        setTimeout(() => revertButtonState(buttonEl), 2500);
       }
-      if (imageSuccess || audioSuccess) {
-        const url = new URL(window.location.href);
-        const keywordParam = url.searchParams.get("keyword");
-        if (keywordParam) {
-          try {
-            let targetNoteIds = [];
-            if (CONFIG.TARGET_NOTE_MODE === "selected") {
-              targetNoteIds = await getSelectedNoteIds();
-            } else {
-              const noteId = await getMostRecentNoteId();
-              targetNoteIds = [noteId];
-            }
-            if (targetNoteIds.length > 0) {
-              ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
-            }
-          } catch {
+    }
+    if (triggerEl && hasImage && imageSuccess && audioSuccess) {
+      const url = new URL(window.location.href);
+      const keywordParam = url.searchParams.get("keyword");
+      if (keywordParam) {
+        try {
+          let targetNoteIds = [];
+          if (CONFIG.TARGET_NOTE_MODE === "selected") {
+            targetNoteIds = await getSelectedNoteIds();
+          } else {
+            const noteId = await getMostRecentNoteId();
+            targetNoteIds = [noteId];
           }
+          if (targetNoteIds.length > 0) {
+            ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
+          }
+        } catch {
         }
       }
     }

@@ -9,6 +9,8 @@ export interface ScriptConfig {
   CONFIRM_OVERWRITE: boolean;
   TARGET_NOTE_MODE: TargetNoteMode;
   CAPTURE_TIMEOUT_MS: number;
+  OPEN_EDITOR_ON_KEY: boolean;
+  OPEN_EDITOR_KEY: string;
 }
 
 export const CONFIG: ScriptConfig = {
@@ -20,6 +22,8 @@ export const CONFIG: ScriptConfig = {
   CONFIRM_OVERWRITE: true,
   TARGET_NOTE_MODE: 'recent',
   CAPTURE_TIMEOUT_MS: 2000,
+  OPEN_EDITOR_ON_KEY: false,
+  OPEN_EDITOR_KEY: 'e',
 };
 
 

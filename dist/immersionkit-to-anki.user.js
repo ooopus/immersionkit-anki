@@ -31,7 +31,9 @@
     EXAMPLE_INDEX: 0,
     CONFIRM_OVERWRITE: true,
     TARGET_NOTE_MODE: "recent",
-    CAPTURE_TIMEOUT_MS: 2e3
+    CAPTURE_TIMEOUT_MS: 2e3,
+    OPEN_EDITOR_ON_KEY: false,
+    OPEN_EDITOR_KEY: "e"
   };
   var _GM_addStyle = (() => typeof GM_addStyle != "undefined" ? GM_addStyle : void 0)();
   var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
@@ -3183,7 +3185,9 @@ active_effect
       audioField: _GM_getValue?.("audioField") || CONFIG.AUDIO_FIELD_NAME,
       exampleIndex: Number(_GM_getValue?.("exampleIndex") ?? CONFIG.EXAMPLE_INDEX) || 0,
       confirmOverwrite: Boolean(_GM_getValue?.("confirmOverwrite") ?? CONFIG.CONFIRM_OVERWRITE),
-      targetNoteMode: _GM_getValue?.("targetNoteMode") || CONFIG.TARGET_NOTE_MODE
+      targetNoteMode: _GM_getValue?.("targetNoteMode") || CONFIG.TARGET_NOTE_MODE,
+      openEditorOnKey: Boolean(_GM_getValue?.("openEditorOnKey") ?? CONFIG.OPEN_EDITOR_ON_KEY),
+      openEditorKey: _GM_getValue?.("openEditorKey") || CONFIG.OPEN_EDITOR_KEY
     };
   }
   function saveSettings(s) {
@@ -3194,6 +3198,8 @@ active_effect
     _GM_setValue?.("exampleIndex", Number.isFinite(s.exampleIndex) ? s.exampleIndex : 0);
     _GM_setValue?.("confirmOverwrite", !!s.confirmOverwrite);
     _GM_setValue?.("targetNoteMode", s.targetNoteMode === "selected" ? "selected" : "recent");
+    _GM_setValue?.("openEditorOnKey", !!s.openEditorOnKey);
+    _GM_setValue?.("openEditorKey", s.openEditorKey.trim() || CONFIG.OPEN_EDITOR_KEY);
     CONFIG.ANKI_CONNECT_URL = s.ankiUrl.trim() || CONFIG.ANKI_CONNECT_URL;
     CONFIG.ANKI_CONNECT_KEY = s.ankiKey.trim() || null;
     CONFIG.IMAGE_FIELD_NAME = s.imageField.trim() || CONFIG.IMAGE_FIELD_NAME;
@@ -3201,11 +3207,13 @@ active_effect
     CONFIG.EXAMPLE_INDEX = Number.isFinite(s.exampleIndex) ? s.exampleIndex : CONFIG.EXAMPLE_INDEX;
     CONFIG.CONFIRM_OVERWRITE = !!s.confirmOverwrite;
     CONFIG.TARGET_NOTE_MODE = s.targetNoteMode === "selected" ? "selected" : "recent";
+    CONFIG.OPEN_EDITOR_ON_KEY = !!s.openEditorOnKey;
+    CONFIG.OPEN_EDITOR_KEY = s.openEditorKey.trim() || CONFIG.OPEN_EDITOR_KEY;
   }
   var $$_import_CONFIG = reactive_import(() => CONFIG);
   var root_1 = from_html(`<div class="alert error svelte-ny9p3g"> </div>`);
   var root_2 = from_html(`<span> </span>`);
-  var root = from_html(`<div class="ik-anki-overlay svelte-ny9p3g" role="button" tabindex="0" aria-label="关闭设置覆盖层"><div class="ik-anki-panel svelte-ny9p3g" role="dialog" aria-modal="true"><header class="svelte-ny9p3g"><h2 class="svelte-ny9p3g">设置（ImmersionKit → Anki）</h2> <button class="icon svelte-ny9p3g" aria-label="关闭">✕</button></header> <main class="svelte-ny9p3g"><!> <label for="anki-url" class="svelte-ny9p3g">AnkiConnect URL</label> <input id="anki-url" type="text" placeholder="http://127.0.0.1:8765" class="svelte-ny9p3g"/> <label for="anki-key" class="svelte-ny9p3g">AnkiConnect Key</label> <input id="anki-key" type="password" placeholder="（可选）" class="svelte-ny9p3g"/> <div class="row svelte-ny9p3g"><div class="col"><label for="image-field" class="svelte-ny9p3g">图片字段名</label> <input id="image-field" type="text" class="svelte-ny9p3g"/></div> <div class="col"><label for="audio-field" class="svelte-ny9p3g">音频字段名</label> <input id="audio-field" type="text" class="svelte-ny9p3g"/></div></div> <div class="row svelte-ny9p3g"><div class="col"><label for="example-index" class="svelte-ny9p3g">示例索引</label> <input id="example-index" type="number" min="0" class="svelte-ny9p3g"/></div> <div class="col checkbox svelte-ny9p3g"><label class="svelte-ny9p3g"><input type="checkbox" class="svelte-ny9p3g"/> 覆盖前确认</label></div></div> <div class="row svelte-ny9p3g"><div class="col"><label for="target-mode" class="svelte-ny9p3g">目标笔记</label> <select id="target-mode"><option>最近添加的笔记</option><option>浏览器中选中的笔记</option></select></div></div> <div class="test svelte-ny9p3g"><button class="secondary svelte-ny9p3g"> </button> <!></div></main> <footer class="svelte-ny9p3g"><button class="ghost svelte-ny9p3g">取消</button> <button class="primary svelte-ny9p3g">保存</button></footer></div> <div class="ik-anki-focus-guard" aria-hidden="true" tabindex="-1"></div> <div class="ik-anki-focus-guard" aria-hidden="true" tabindex="-1"></div></div>`);
+  var root = from_html(`<div class="ik-anki-overlay svelte-ny9p3g" role="button" tabindex="0" aria-label="关闭设置覆盖层"><div class="ik-anki-panel svelte-ny9p3g" role="dialog" aria-modal="true"><header class="svelte-ny9p3g"><h2 class="svelte-ny9p3g">设置（ImmersionKit → Anki）</h2> <button class="icon svelte-ny9p3g" aria-label="关闭">✕</button></header> <main class="svelte-ny9p3g"><!> <label for="anki-url" class="svelte-ny9p3g">AnkiConnect URL</label> <input id="anki-url" type="text" placeholder="http://127.0.0.1:8765" class="svelte-ny9p3g"/> <label for="anki-key" class="svelte-ny9p3g">AnkiConnect Key</label> <input id="anki-key" type="password" placeholder="（可选）" class="svelte-ny9p3g"/> <div class="row svelte-ny9p3g"><div class="col"><label for="image-field" class="svelte-ny9p3g">图片字段名</label> <input id="image-field" type="text" class="svelte-ny9p3g"/></div> <div class="col"><label for="audio-field" class="svelte-ny9p3g">音频字段名</label> <input id="audio-field" type="text" class="svelte-ny9p3g"/></div></div> <div class="row svelte-ny9p3g"><div class="col"><label for="example-index" class="svelte-ny9p3g">示例索引</label> <input id="example-index" type="number" min="0" class="svelte-ny9p3g"/></div> <div class="col checkbox svelte-ny9p3g"><label class="svelte-ny9p3g"><input type="checkbox" class="svelte-ny9p3g"/> 覆盖前确认</label></div></div> <div class="row svelte-ny9p3g"><div class="col checkbox svelte-ny9p3g"><label class="svelte-ny9p3g"><input type="checkbox" class="svelte-ny9p3g"/> 添加后按快捷键打开编辑器</label></div> <div class="col"><label for="open-editor-key" class="svelte-ny9p3g">快捷键</label> <input id="open-editor-key" type="text" maxlength="16" placeholder="e" class="svelte-ny9p3g"/></div></div> <div class="row svelte-ny9p3g"><div class="col"><label for="target-mode" class="svelte-ny9p3g">目标笔记</label> <select id="target-mode"><option>最近添加的笔记</option><option>浏览器中选中的笔记</option></select></div></div> <div class="test svelte-ny9p3g"><button class="secondary svelte-ny9p3g"> </button> <!></div></main> <footer class="svelte-ny9p3g"><button class="ghost svelte-ny9p3g">取消</button> <button class="primary svelte-ny9p3g">保存</button></footer></div> <div class="ik-anki-focus-guard" aria-hidden="true" tabindex="-1"></div> <div class="ik-anki-focus-guard" aria-hidden="true" tabindex="-1"></div></div>`);
   function Settings($$anchor, $$props) {
     push($$props, false);
     let initial = prop($$props, "initial", 24, () => ({
@@ -3215,7 +3223,9 @@ active_effect
       audioField: $$_import_CONFIG().AUDIO_FIELD_NAME,
       exampleIndex: $$_import_CONFIG().EXAMPLE_INDEX,
       confirmOverwrite: $$_import_CONFIG().CONFIRM_OVERWRITE,
-      targetNoteMode: $$_import_CONFIG().TARGET_NOTE_MODE
+      targetNoteMode: $$_import_CONFIG().TARGET_NOTE_MODE,
+      openEditorOnKey: $$_import_CONFIG().OPEN_EDITOR_ON_KEY,
+      openEditorKey: $$_import_CONFIG().OPEN_EDITOR_KEY
     }));
     let onClose = prop($$props, "onClose", 8, () => {
     });
@@ -3295,7 +3305,13 @@ active_effect
     var input_5 = child(label);
     var div_9 = sibling(div_6, 2);
     var div_10 = child(div_9);
-    var select = sibling(child(div_10), 2);
+    var label_1 = child(div_10);
+    var input_6 = child(label_1);
+    var div_11 = sibling(div_10, 2);
+    var input_7 = sibling(child(div_11), 2);
+    var div_12 = sibling(div_9, 2);
+    var div_13 = child(div_12);
+    var select = sibling(child(div_13), 2);
     template_effect(() => {
       get(state2);
       invalidate_inner_signals(() => {
@@ -3305,8 +3321,8 @@ active_effect
     option.value = option.__value = "recent";
     var option_1 = sibling(option);
     option_1.value = option_1.__value = "selected";
-    var div_11 = sibling(div_9, 2);
-    var button_1 = child(div_11);
+    var div_14 = sibling(div_12, 2);
+    var button_1 = child(div_14);
     var text_1 = child(button_1);
     var node_1 = sibling(button_1, 2);
     {
@@ -3331,6 +3347,7 @@ active_effect
     var button_2 = child(footer);
     var button_3 = sibling(button_2, 2);
     template_effect(() => {
+      input_7.disabled = (get(state2), untrack(() => !get(state2).openEditorOnKey));
       button_1.disabled = get(testing);
       set_text(text_1, get(testing) ? "测试中…" : "测试连接");
     });
@@ -3343,6 +3360,8 @@ active_effect
     bind_value(input_3, () => get(state2).audioField, ($$value) => mutate(state2, get(state2).audioField = $$value));
     bind_value(input_4, () => get(state2).exampleIndex, ($$value) => mutate(state2, get(state2).exampleIndex = $$value));
     bind_checked(input_5, () => get(state2).confirmOverwrite, ($$value) => mutate(state2, get(state2).confirmOverwrite = $$value));
+    bind_checked(input_6, () => get(state2).openEditorOnKey, ($$value) => mutate(state2, get(state2).openEditorOnKey = $$value));
+    bind_value(input_7, () => get(state2).openEditorKey, ($$value) => mutate(state2, get(state2).openEditorKey = $$value));
     bind_select_value(select, () => get(state2).targetNoteMode, ($$value) => mutate(state2, get(state2).targetNoteMode = $$value));
     event("click", button_1, onTest);
     event("click", button_2, function(...$$args) {
@@ -3531,6 +3550,43 @@ active_effect
     const filename = filenameFromUrl$1(finalUrl, "audio.mp3");
     return { url: finalUrl, filename };
   }
+  const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1e3;
+  let lastAddedNoteId = null;
+  let lastAddedAt = 0;
+  let editorShortcutRegistered = false;
+  function isTextInputTarget(target) {
+    if (!target) return false;
+    const el = target;
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    return Boolean(el.isContentEditable);
+  }
+  async function handleEditorShortcut(e) {
+    if (!CONFIG.OPEN_EDITOR_ON_KEY) return;
+    const shortcut = (CONFIG.OPEN_EDITOR_KEY || "").trim();
+    if (!shortcut) return;
+    if (isTextInputTarget(e.target)) return;
+    if (!lastAddedNoteId) return;
+    if (Date.now() - lastAddedAt > LAST_ADDED_NOTE_EXPIRES_MS) return;
+    const pressed = (e.key || "").trim().toLowerCase();
+    if (pressed !== shortcut.toLowerCase()) return;
+    try {
+      await openNoteEditor(lastAddedNoteId);
+    } catch (err) {
+      console.warn("[Anki] 打开编辑器失败", err);
+    }
+  }
+  function registerEditorShortcutHandler() {
+    if (editorShortcutRegistered) return;
+    window.addEventListener("keydown", handleEditorShortcut);
+    editorShortcutRegistered = true;
+  }
+  function setLastAddedNote(noteId) {
+    if (!noteId || !Number.isFinite(noteId)) return;
+    lastAddedNoteId = noteId;
+    lastAddedAt = Date.now();
+    registerEditorShortcutHandler();
+  }
   function ensureOpenEditorControl(triggerEl, noteId) {
     if (!noteId || !Number.isFinite(noteId)) return;
     const idx = triggerEl.dataset.ankiIndex || "";
@@ -3704,6 +3760,7 @@ active_effect
         console.log(`[Anki] 获取到最近笔记: ${noteId}`);
       }
       console.log(`[Anki] 开始向 ${targetNoteIds.length} 个笔记添加媒体...`);
+      const successfulNoteIds = [];
       let successCount = 0;
       for (const noteId of targetNoteIds) {
         try {
@@ -3743,6 +3800,7 @@ active_effect
           await attachMedia(noteId, mediaType, { url: apiUrl, filename }, fieldName);
           console.log(`[Anki] ✓ 成功添加媒体到笔记 ${noteId}`);
           successCount++;
+          successfulNoteIds.push(noteId);
         } catch (e) {
           console.error(`[Anki] ✗ 添加媒体到笔记 ${noteId} 失败:`, e);
           console.warn("Failed to add media to note", noteId, e);
@@ -3751,14 +3809,16 @@ active_effect
       }
       console.log(`[Anki] 完成: ${successCount}/${targetNoteIds.length} 个笔记添加成功`);
       if (successCount > 0) {
+        const noteToUse = successfulNoteIds[successfulNoteIds.length - 1] ?? targetNoteIds[0];
+        if (noteToUse) setLastAddedNote(noteToUse);
         if (buttonEl) {
           const total = targetNoteIds.length;
           const text = total > 1 ? `已添加 ${successCount}/${total}` : getSuccessText(mediaType);
           setButtonState(buttonEl, "success", text);
           setTimeout(() => revertButtonState(buttonEl), 2e3);
         }
-        if (allowEnsureOpen && triggerEl && targetNoteIds.length >= 1) {
-          ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
+        if (allowEnsureOpen && triggerEl && noteToUse) {
+          ensureOpenEditorControl(triggerEl, noteToUse);
         }
       } else if (buttonEl) {
         setButtonState(buttonEl, "error", "添加失败");

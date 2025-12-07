@@ -12,6 +12,8 @@
         exampleIndex: CONFIG.EXAMPLE_INDEX,
         confirmOverwrite: CONFIG.CONFIRM_OVERWRITE,
         targetNoteMode: CONFIG.TARGET_NOTE_MODE,
+        openEditorOnKey: CONFIG.OPEN_EDITOR_ON_KEY,
+        openEditorKey: CONFIG.OPEN_EDITOR_KEY,
     };
     export let onClose: () => void = () => {};
 
@@ -136,6 +138,28 @@
                             bind:checked={state.confirmOverwrite}
                         /> 覆盖前确认
                     </label>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col checkbox">
+                    <label>
+                        <input
+                            type="checkbox"
+                            bind:checked={state.openEditorOnKey}
+                        /> 添加后按快捷键打开编辑器
+                    </label>
+                </div>
+                <div class="col">
+                    <label for="open-editor-key">快捷键</label>
+                    <input
+                        id="open-editor-key"
+                        type="text"
+                        maxlength="16"
+                        placeholder="e"
+                        bind:value={state.openEditorKey}
+                        disabled={!state.openEditorOnKey}
+                    />
                 </div>
             </div>
 

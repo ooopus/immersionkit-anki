@@ -7,6 +7,51 @@ import type { AnkiNoteInfo } from './types';
 import { getNoteInfo, openNoteEditor } from './anki';
 import { captureAudioUrlFromMining } from './miningSoundCapture';
 
+const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1000;
+let lastAddedNoteId: number | null = null;
+let lastAddedAt = 0;
+let editorShortcutRegistered = false;
+
+function isTextInputTarget(target: EventTarget | null): boolean {
+  if (!target) return false;
+  const el = target as HTMLElement;
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  return Boolean(el.isContentEditable);
+}
+
+async function handleEditorShortcut(e: KeyboardEvent) {
+  if (!CONFIG.OPEN_EDITOR_ON_KEY) return;
+  const shortcut = (CONFIG.OPEN_EDITOR_KEY || '').trim();
+  if (!shortcut) return;
+
+  if (isTextInputTarget(e.target as HTMLElement | null)) return;
+  if (!lastAddedNoteId) return;
+  if (Date.now() - lastAddedAt > LAST_ADDED_NOTE_EXPIRES_MS) return;
+
+  const pressed = (e.key || '').trim().toLowerCase();
+  if (pressed !== shortcut.toLowerCase()) return;
+
+  try {
+    await openNoteEditor(lastAddedNoteId);
+  } catch (err) {
+    console.warn('[Anki] 打开编辑器失败', err);
+  }
+}
+
+function registerEditorShortcutHandler() {
+  if (editorShortcutRegistered) return;
+  window.addEventListener('keydown', handleEditorShortcut);
+  editorShortcutRegistered = true;
+}
+
+function setLastAddedNote(noteId: number) {
+  if (!noteId || !Number.isFinite(noteId)) return;
+  lastAddedNoteId = noteId;
+  lastAddedAt = Date.now();
+  registerEditorShortcutHandler();
+}
+
 function ensureOpenEditorControl(triggerEl: Element, noteId: number) {
   if (!noteId || !Number.isFinite(noteId)) return;
   const idx = (triggerEl as HTMLElement).dataset.ankiIndex || '';
@@ -245,6 +290,7 @@ async function addMediaToAnkiForIndex(
     }
 
     console.log(`[Anki] 开始向 ${targetNoteIds.length} 个笔记添加媒体...`);
+    const successfulNoteIds: number[] = [];
     let successCount = 0;
     for (const noteId of targetNoteIds) {
       try {
@@ -286,6 +332,7 @@ async function addMediaToAnkiForIndex(
         await attachMedia(noteId, mediaType, { url: apiUrl, filename }, fieldName);
         console.log(`[Anki] ✓ 成功添加媒体到笔记 ${noteId}`);
         successCount++;
+        successfulNoteIds.push(noteId);
       } catch (e) {
         // skip this note and continue others
         console.error(`[Anki] ✗ 添加媒体到笔记 ${noteId} 失败:`, e);
@@ -295,14 +342,16 @@ async function addMediaToAnkiForIndex(
     }
     console.log(`[Anki] 完成: ${successCount}/${targetNoteIds.length} 个笔记添加成功`);
     if (successCount > 0) {
+      const noteToUse = successfulNoteIds[successfulNoteIds.length - 1] ?? targetNoteIds[0];
+      if (noteToUse) setLastAddedNote(noteToUse);
       if (buttonEl) {
         const total = targetNoteIds.length;
         const text = total > 1 ? `已添加 ${successCount}/${total}` : getSuccessText(mediaType);
         setButtonState(buttonEl, 'success', text);
         setTimeout(() => revertButtonState(buttonEl), 2000);
       }
-      if (allowEnsureOpen && triggerEl && targetNoteIds.length >= 1) {
-        ensureOpenEditorControl(triggerEl, targetNoteIds[0]);
+      if (allowEnsureOpen && triggerEl && noteToUse) {
+        ensureOpenEditorControl(triggerEl, noteToUse);
       }
     } else if (buttonEl) {
       setButtonState(buttonEl, 'error', '添加失败');

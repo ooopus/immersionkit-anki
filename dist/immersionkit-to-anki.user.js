@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.2
+// @version      1.1.3
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -3814,6 +3814,8 @@ active_effect
   let currentAudio = null;
   let stateChangeListeners = [];
   let shortcutRegistered = false;
+  let skipResolve = null;
+  let wasSkipped = false;
   function notifyStateChange() {
     const snapshot = { ...state };
     stateChangeListeners.forEach((fn) => fn(snapshot));
@@ -3915,18 +3917,26 @@ active_effect
       return new Promise((resolve) => {
         const audio = new Audio(captured.url);
         currentAudio = audio;
-        audio.addEventListener("ended", () => {
+        const cleanup = () => {
+          skipResolve = null;
           currentAudio = null;
+        };
+        skipResolve = () => {
+          cleanup();
+          resolve(true);
+        };
+        audio.addEventListener("ended", () => {
+          cleanup();
           resolve(true);
         });
         audio.addEventListener("error", (e) => {
           console.error("[PlayAll] Audio error:", e);
-          currentAudio = null;
+          cleanup();
           resolve(false);
         });
         audio.play().catch((err) => {
           console.error("[PlayAll] Play failed:", err);
-          currentAudio = null;
+          cleanup();
           resolve(false);
         });
       });
@@ -3980,8 +3990,11 @@ active_effect
         clearHighlight();
         return;
       }
-      state.currentIndex++;
-      notifyStateChange();
+      if (!wasSkipped) {
+        state.currentIndex++;
+        notifyStateChange();
+      }
+      wasSkipped = false;
     }
   }
   function startPlayAll(fromIndex = 0) {
@@ -4025,23 +4038,31 @@ active_effect
   }
   function skipToNext() {
     if (state.status === "idle" || state.status === "stopped") return;
+    wasSkipped = true;
+    state.currentIndex++;
+    notifyStateChange();
     if (currentAudio) {
       currentAudio.pause();
       currentAudio = null;
     }
-    state.currentIndex++;
-    notifyStateChange();
+    if (skipResolve) {
+      skipResolve();
+    }
   }
   function skipToPrevious() {
     if (state.status === "idle" || state.status === "stopped") return;
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio = null;
-    }
+    wasSkipped = true;
     if (state.currentIndex > 0) {
       state.currentIndex--;
     }
     notifyStateChange();
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (skipResolve) {
+      skipResolve();
+    }
   }
   function handleKeydown(e) {
     const target = e.target;

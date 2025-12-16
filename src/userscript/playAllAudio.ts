@@ -29,6 +29,11 @@ let currentAudio: HTMLAudioElement | null = null;
 let stateChangeListeners: Array<(s: PlayAllState) => void> = [];
 let shortcutRegistered = false;
 
+// Callback to resolve the current audio promise when skipping
+let skipResolve: (() => void) | null = null;
+// Flag to indicate skip was triggered (index already updated)
+let wasSkipped = false;
+
 // ============================================================================
 // State Helpers
 // ============================================================================
@@ -187,20 +192,32 @@ async function playAudioAtIndex(index: number): Promise<boolean> {
       const audio = new Audio(captured.url);
       currentAudio = audio;
 
-      audio.addEventListener('ended', () => {
+      // Clean up function
+      const cleanup = () => {
+        skipResolve = null;
         currentAudio = null;
+      };
+
+      // Register skip resolver so skip functions can immediately resolve this promise
+      skipResolve = () => {
+        cleanup();
+        resolve(true); // Return true to continue the loop
+      };
+
+      audio.addEventListener('ended', () => {
+        cleanup();
         resolve(true);
       });
 
       audio.addEventListener('error', (e) => {
         console.error('[PlayAll] Audio error:', e);
-        currentAudio = null;
+        cleanup();
         resolve(false);
       });
 
       audio.play().catch((err) => {
         console.error('[PlayAll] Play failed:', err);
-        currentAudio = null;
+        cleanup();
         resolve(false);
       });
     });
@@ -275,9 +292,12 @@ async function playLoop() {
       return;
     }
 
-    // Move to next
-    state.currentIndex++;
-    notifyStateChange();
+    // Move to next only if not skipped (skip functions already update the index)
+    if (!wasSkipped) {
+      state.currentIndex++;
+      notifyStateChange();
+    }
+    wasSkipped = false;
   }
 }
 
@@ -338,30 +358,47 @@ export function toggleLoop() {
 export function skipToNext() {
   if (state.status === 'idle' || state.status === 'stopped') return;
 
-  // Stop current audio
+  // Mark as skipped so playLoop doesn't double-increment
+  wasSkipped = true;
+
+  // Update index first
+  state.currentIndex++;
+  notifyStateChange();
+
+  // Stop current audio and trigger skip
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
 
-  // The loop will pick up the next index
-  state.currentIndex++;
-  notifyStateChange();
+  // Immediately resolve the playAudioAtIndex promise so loop continues
+  if (skipResolve) {
+    skipResolve();
+  }
 }
 
 export function skipToPrevious() {
   if (state.status === 'idle' || state.status === 'stopped') return;
 
-  // Stop current audio
+  // Mark as skipped so playLoop doesn't double-increment
+  wasSkipped = true;
+
+  // Update index first
+  if (state.currentIndex > 0) {
+    state.currentIndex--;
+  }
+  notifyStateChange();
+
+  // Stop current audio and trigger skip
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
 
-  if (state.currentIndex > 0) {
-    state.currentIndex--;
+  // Immediately resolve the playAudioAtIndex promise so loop continues
+  if (skipResolve) {
+    skipResolve();
   }
-  notifyStateChange();
 }
 
 // ============================================================================

@@ -6,6 +6,7 @@ import { openSettingsOverlay } from './settings-ui';
 import type { AnkiNoteInfo } from './types';
 import { getNoteInfo, openNoteEditor } from './anki';
 import { captureAudioUrlFromMining } from './miningSoundCapture';
+import { injectPlayAllBar } from './playAllBar';
 
 const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1000;
 let lastAddedNoteId: number | null = null;
@@ -623,7 +624,10 @@ function init() {
     stylesInjected = true;
   }
   observeNewMenus();
-  setTimeout(insertAnkiButtons, 1000);
+  setTimeout(() => {
+    insertAnkiButtons();
+    injectPlayAllBar();
+  }, 1000);
 }
 
 function isDictionaryPage(u?: URL) {

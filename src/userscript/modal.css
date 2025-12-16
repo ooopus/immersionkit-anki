@@ -127,3 +127,140 @@
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* ============================================================================
+   Play All Audio Control Bar
+   ============================================================================ */
+
+.anki-playall-bar {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 12px;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+}
+
+.anki-playall-btn {
+    appearance: none;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.anki-playall-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.anki-playall-btn:active {
+    transform: scale(0.97);
+}
+
+.anki-playall-btn.primary {
+    background: #4caf50;
+}
+
+.anki-playall-btn.primary:hover {
+    background: #5cbf60;
+}
+
+.anki-playall-btn.warning {
+    background: #ff9800;
+}
+
+.anki-playall-btn.warning:hover {
+    background: #ffaa22;
+}
+
+.anki-playall-btn.danger {
+    background: #f44336;
+}
+
+.anki-playall-btn.danger:hover {
+    background: #ff5544;
+}
+
+.anki-playall-btn.active {
+    background: #2196f3;
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.4);
+}
+
+.anki-playall-progress {
+    flex: 1;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    text-align: center;
+}
+
+.anki-playall-progress .current {
+    font-weight: 600;
+    color: #fff;
+}
+
+.anki-playall-shortcuts {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    margin-left: auto;
+}
+
+.anki-playall-shortcuts kbd {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: 0 2px;
+    font-family: monospace;
+    font-size: 10px;
+}
+
+/* ============================================================================
+   Example Highlight Animation
+   ============================================================================ */
+
+.anki-playall-highlight {
+    position: relative;
+    animation: anki-playall-pulse 1.5s ease-in-out infinite;
+}
+
+.anki-playall-highlight::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 3px solid #2196f3;
+    border-radius: 8px;
+    pointer-events: none;
+    animation: anki-playall-border-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes anki-playall-pulse {
+    0%, 100% {
+        background-color: rgba(33, 150, 243, 0.05);
+    }
+    50% {
+        background-color: rgba(33, 150, 243, 0.12);
+    }
+}
+
+@keyframes anki-playall-border-pulse {
+    0%, 100% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
+}

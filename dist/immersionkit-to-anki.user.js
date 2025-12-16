@@ -200,7 +200,272 @@
   async function openNoteEditor(noteId) {
     await invokeAnkiConnect("guiEditNote", { note: noteId });
   }
-  const modalCss = '.anki-feedback-pending {\r\n    opacity: .7;\r\n    pointer-events: none;\r\n}\r\n\r\n.anki-feedback-success {\r\n    color: #0a8f08 !important;\r\n}\r\n\r\n.anki-feedback-error {\r\n    color: #c62828 !important;\r\n}\r\n\r\n.anki-modal-overlay {\r\n    position: fixed;\r\n    inset: 0;\r\n    background: rgba(0, 0, 0, .45);\r\n    display: flex;\r\n    align-items: center;\r\n    justify-content: center;\r\n    z-index: 99999;\r\n}\r\n\r\n.anki-modal {\r\n    background: #fff;\r\n    border-radius: 10px;\r\n    box-shadow: 0 10px 30px rgba(0, 0, 0, .2);\r\n    width: min(560px, 92vw);\r\n    max-height: 90vh;\r\n    display: flex;\r\n    flex-direction: column;\r\n    overflow: hidden;\r\n    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;\r\n}\r\n\r\n.anki-modal header {\r\n    padding: 14px 18px;\r\n    border-bottom: 1px solid #eee;\r\n    font-weight: 600;\r\n    font-size: 15px;\r\n}\r\n\r\n.anki-modal main {\r\n    padding: 16px 18px;\r\n    overflow: auto;\r\n    font-size: 14px;\r\n    line-height: 1.5;\r\n    color: #333;\r\n}\r\n\r\n.anki-modal footer {\r\n    padding: 12px 18px;\r\n    border-top: 1px solid #eee;\r\n    display: flex;\r\n    gap: 10px;\r\n    justify-content: flex-end;\r\n    background: #fafafa;\r\n}\r\n\r\n.anki-btn {\r\n    appearance: none;\r\n    border: 1px solid #ccc;\r\n    background: #fff;\r\n    border-radius: 8px;\r\n    padding: 6px 12px;\r\n    cursor: pointer;\r\n    font-size: 14px;\r\n}\r\n\r\n.anki-btn.primary {\r\n    background: #2563eb;\r\n    border-color: #2563eb;\r\n    color: #fff;\r\n}\r\n\r\n.anki-btn.danger {\r\n    background: #c62828;\r\n    border-color: #c62828;\r\n    color: #fff;\r\n}\r\n\r\n.anki-form {\r\n    display: grid;\r\n    grid-template-columns: 130px 1fr;\r\n    gap: 10px 12px;\r\n    align-items: center;\r\n}\r\n\r\n.anki-form label {\r\n    font-weight: 600;\r\n    color: #444;\r\n}\r\n\r\n.anki-form input[type="text"],\r\n.anki-form input[type="number"],\r\n.anki-form input[type="password"] {\r\n    width: 100%;\r\n    padding: 8px 10px;\r\n    border: 1px solid #ddd;\r\n    border-radius: 8px;\r\n    font-size: 14px;\r\n}\r\n\r\n.anki-form .row-span-2 {\r\n    grid-column: 1 / -1\r\n}\r\n\r\n.anki-kv {\r\n    display: grid;\r\n    grid-template-columns: 120px 1fr;\r\n    gap: 8px 10px;\r\n    margin-bottom: 8px\r\n}\r\n\r\n.anki-kv .key {\r\n    color: #555;\r\n    font-weight: 600\r\n}\r\n\r\n.anki-pre {\r\n    background: #f7f7f9;\r\n    border: 1px solid #eee;\r\n    border-radius: 8px;\r\n    padding: 10px;\r\n    max-height: 180px;\r\n    overflow: auto;\r\n    white-space: pre-wrap;\r\n    word-break: break-word;\r\n}';
+  const modalCss = `.anki-feedback-pending {\r
+    opacity: .7;\r
+    pointer-events: none;\r
+}\r
+\r
+.anki-feedback-success {\r
+    color: #0a8f08 !important;\r
+}\r
+\r
+.anki-feedback-error {\r
+    color: #c62828 !important;\r
+}\r
+\r
+.anki-modal-overlay {\r
+    position: fixed;\r
+    inset: 0;\r
+    background: rgba(0, 0, 0, .45);\r
+    display: flex;\r
+    align-items: center;\r
+    justify-content: center;\r
+    z-index: 99999;\r
+}\r
+\r
+.anki-modal {\r
+    background: #fff;\r
+    border-radius: 10px;\r
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .2);\r
+    width: min(560px, 92vw);\r
+    max-height: 90vh;\r
+    display: flex;\r
+    flex-direction: column;\r
+    overflow: hidden;\r
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;\r
+}\r
+\r
+.anki-modal header {\r
+    padding: 14px 18px;\r
+    border-bottom: 1px solid #eee;\r
+    font-weight: 600;\r
+    font-size: 15px;\r
+}\r
+\r
+.anki-modal main {\r
+    padding: 16px 18px;\r
+    overflow: auto;\r
+    font-size: 14px;\r
+    line-height: 1.5;\r
+    color: #333;\r
+}\r
+\r
+.anki-modal footer {\r
+    padding: 12px 18px;\r
+    border-top: 1px solid #eee;\r
+    display: flex;\r
+    gap: 10px;\r
+    justify-content: flex-end;\r
+    background: #fafafa;\r
+}\r
+\r
+.anki-btn {\r
+    appearance: none;\r
+    border: 1px solid #ccc;\r
+    background: #fff;\r
+    border-radius: 8px;\r
+    padding: 6px 12px;\r
+    cursor: pointer;\r
+    font-size: 14px;\r
+}\r
+\r
+.anki-btn.primary {\r
+    background: #2563eb;\r
+    border-color: #2563eb;\r
+    color: #fff;\r
+}\r
+\r
+.anki-btn.danger {\r
+    background: #c62828;\r
+    border-color: #c62828;\r
+    color: #fff;\r
+}\r
+\r
+.anki-form {\r
+    display: grid;\r
+    grid-template-columns: 130px 1fr;\r
+    gap: 10px 12px;\r
+    align-items: center;\r
+}\r
+\r
+.anki-form label {\r
+    font-weight: 600;\r
+    color: #444;\r
+}\r
+\r
+.anki-form input[type="text"],\r
+.anki-form input[type="number"],\r
+.anki-form input[type="password"] {\r
+    width: 100%;\r
+    padding: 8px 10px;\r
+    border: 1px solid #ddd;\r
+    border-radius: 8px;\r
+    font-size: 14px;\r
+}\r
+\r
+.anki-form .row-span-2 {\r
+    grid-column: 1 / -1\r
+}\r
+\r
+.anki-kv {\r
+    display: grid;\r
+    grid-template-columns: 120px 1fr;\r
+    gap: 8px 10px;\r
+    margin-bottom: 8px\r
+}\r
+\r
+.anki-kv .key {\r
+    color: #555;\r
+    font-weight: 600\r
+}\r
+\r
+.anki-pre {\r
+    background: #f7f7f9;\r
+    border: 1px solid #eee;\r
+    border-radius: 8px;\r
+    padding: 10px;\r
+    max-height: 180px;\r
+    overflow: auto;\r
+    white-space: pre-wrap;\r
+    word-break: break-word;\r
+}\r
+\r
+/* ============================================================================\r
+   Play All Audio Control Bar\r
+   ============================================================================ */\r
+\r
+.anki-playall-bar {\r
+    position: sticky;\r
+    top: 0;\r
+    z-index: 1000;\r
+    display: flex;\r
+    align-items: center;\r
+    gap: 8px;\r
+    padding: 10px 14px;\r
+    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);\r
+    border-radius: 10px;\r
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);\r
+    margin-bottom: 12px;\r
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;\r
+}\r
+\r
+.anki-playall-btn {\r
+    appearance: none;\r
+    border: none;\r
+    background: rgba(255, 255, 255, 0.15);\r
+    color: #fff;\r
+    border-radius: 8px;\r
+    padding: 8px 14px;\r
+    cursor: pointer;\r
+    font-size: 13px;\r
+    font-weight: 500;\r
+    display: inline-flex;\r
+    align-items: center;\r
+    gap: 6px;\r
+    transition: background 0.2s, transform 0.1s;\r
+}\r
+\r
+.anki-playall-btn:hover {\r
+    background: rgba(255, 255, 255, 0.25);\r
+}\r
+\r
+.anki-playall-btn:active {\r
+    transform: scale(0.97);\r
+}\r
+\r
+.anki-playall-btn.primary {\r
+    background: #4caf50;\r
+}\r
+\r
+.anki-playall-btn.primary:hover {\r
+    background: #5cbf60;\r
+}\r
+\r
+.anki-playall-btn.warning {\r
+    background: #ff9800;\r
+}\r
+\r
+.anki-playall-btn.warning:hover {\r
+    background: #ffaa22;\r
+}\r
+\r
+.anki-playall-btn.danger {\r
+    background: #f44336;\r
+}\r
+\r
+.anki-playall-btn.danger:hover {\r
+    background: #ff5544;\r
+}\r
+\r
+.anki-playall-btn.active {\r
+    background: #2196f3;\r
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.4);\r
+}\r
+\r
+.anki-playall-progress {\r
+    flex: 1;\r
+    color: rgba(255, 255, 255, 0.9);\r
+    font-size: 13px;\r
+    text-align: center;\r
+}\r
+\r
+.anki-playall-progress .current {\r
+    font-weight: 600;\r
+    color: #fff;\r
+}\r
+\r
+.anki-playall-shortcuts {\r
+    color: rgba(255, 255, 255, 0.6);\r
+    font-size: 11px;\r
+    margin-left: auto;\r
+}\r
+\r
+.anki-playall-shortcuts kbd {\r
+    display: inline-block;\r
+    background: rgba(255, 255, 255, 0.15);\r
+    border-radius: 4px;\r
+    padding: 2px 6px;\r
+    margin: 0 2px;\r
+    font-family: monospace;\r
+    font-size: 10px;\r
+}\r
+\r
+/* ============================================================================\r
+   Example Highlight Animation\r
+   ============================================================================ */\r
+\r
+.anki-playall-highlight {\r
+    position: relative;\r
+    animation: anki-playall-pulse 1.5s ease-in-out infinite;\r
+}\r
+\r
+.anki-playall-highlight::before {\r
+    content: '';\r
+    position: absolute;\r
+    inset: -4px;\r
+    border: 3px solid #2196f3;\r
+    border-radius: 8px;\r
+    pointer-events: none;\r
+    animation: anki-playall-border-pulse 1.5s ease-in-out infinite;\r
+}\r
+\r
+@keyframes anki-playall-pulse {\r
+    0%, 100% {\r
+        background-color: rgba(33, 150, 243, 0.05);\r
+    }\r
+    50% {\r
+        background-color: rgba(33, 150, 243, 0.12);\r
+    }\r
+}\r
+\r
+@keyframes anki-playall-border-pulse {\r
+    0%, 100% {\r
+        opacity: 0.6;\r
+    }\r
+    50% {\r
+        opacity: 1;\r
+    }\r
+}`;
   function setButtonState(el, state2, text) {
     if (!el) return;
     const node = el;
@@ -1357,7 +1622,7 @@ v,
     };
     return signal;
   }
-function state(v, stack) {
+function state$1(v, stack) {
     const s = source(v);
     push_reaction_value(s);
     return s;
@@ -1464,7 +1729,7 @@ reaction
     }
     var sources = new Map();
     var is_proxied_array = is_array(value);
-    var version = state(0);
+    var version = state$1(0);
     var parent_version = update_version;
     var with_parent = (fn) => {
       if (update_version === parent_version) {
@@ -1480,7 +1745,7 @@ reaction
       return result;
     };
     if (is_proxied_array) {
-      sources.set("length", state(
+      sources.set("length", state$1(
 value.length
       ));
     }
@@ -1494,7 +1759,7 @@ value,
           var s = sources.get(prop2);
           if (s === void 0) {
             s = with_parent(() => {
-              var s2 = state(descriptor.value);
+              var s2 = state$1(descriptor.value);
               sources.set(prop2, s2);
               return s2;
             });
@@ -1507,7 +1772,7 @@ value,
           var s = sources.get(prop2);
           if (s === void 0) {
             if (prop2 in target) {
-              const s2 = with_parent(() => state(UNINITIALIZED));
+              const s2 = with_parent(() => state$1(UNINITIALIZED));
               sources.set(prop2, s2);
               increment(version);
             }
@@ -1526,7 +1791,7 @@ value,
           if (s === void 0 && (!exists || get_descriptor(target, prop2)?.writable)) {
             s = with_parent(() => {
               var p = proxy(exists ? target[prop2] : UNINITIALIZED);
-              var s2 = state(p);
+              var s2 = state$1(p);
               return s2;
             });
             sources.set(prop2, s);
@@ -1566,7 +1831,7 @@ value,
             if (s === void 0) {
               s = with_parent(() => {
                 var p = has ? proxy(target[prop2]) : UNINITIALIZED;
-                var s2 = state(p);
+                var s2 = state$1(p);
                 return s2;
               });
               sources.set(prop2, s);
@@ -1588,14 +1853,14 @@ s.v; i += 1) {
               if (other_s !== void 0) {
                 set(other_s, UNINITIALIZED);
               } else if (i in target) {
-                other_s = with_parent(() => state(UNINITIALIZED));
+                other_s = with_parent(() => state$1(UNINITIALIZED));
                 sources.set(i + "", other_s);
               }
             }
           }
           if (s === void 0) {
             if (!has || get_descriptor(target, prop2)?.writable) {
-              s = with_parent(() => state(void 0));
+              s = with_parent(() => state$1(void 0));
               set(s, proxy(value2));
               sources.set(prop2, s);
             }
@@ -3540,6 +3805,415 @@ active_effect
     const filename = filenameFromUrl$1(finalUrl, "audio.mp3");
     return { url: finalUrl, filename };
   }
+  const state = {
+    status: "idle",
+    currentIndex: 0,
+    totalOnPage: 0,
+    loopEnabled: false
+  };
+  let currentAudio = null;
+  let stateChangeListeners = [];
+  let shortcutRegistered = false;
+  function notifyStateChange() {
+    const snapshot = { ...state };
+    stateChangeListeners.forEach((fn) => fn(snapshot));
+  }
+  function onStateChange(fn) {
+    stateChangeListeners.push(fn);
+    return () => {
+      stateChangeListeners = stateChangeListeners.filter((f) => f !== fn);
+    };
+  }
+  function getState() {
+    return { ...state };
+  }
+  function getExampleGroups$1() {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) return [];
+    const children = Array.from(container.children);
+    const groups = [];
+    for (let i = 0; i + 4 < children.length; i += 5) {
+      groups.push({
+        exampleDesktop: children[i],
+        buttonSpanDesktop: children[i + 1],
+        exampleMobile: children[i + 2],
+        buttonSpanMobile: children[i + 3],
+        contextMenu: children[i + 4],
+        index: Math.floor(i / 5)
+      });
+    }
+    return groups;
+  }
+  function highlightExample(index) {
+    document.querySelectorAll(".anki-playall-highlight").forEach((el) => {
+      el.classList.remove("anki-playall-highlight");
+    });
+    const groups = getExampleGroups$1();
+    const group = groups[index];
+    if (!group) return;
+    group.exampleDesktop.classList.add("anki-playall-highlight");
+    group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function clearHighlight() {
+    document.querySelectorAll(".anki-playall-highlight").forEach((el) => {
+      el.classList.remove("anki-playall-highlight");
+    });
+  }
+  function getNextPageButton() {
+    const selectors = [
+      'a.icon.item[aria-label="Next item"]',
+      "a.icon.item:has(i.right.chevron.icon)",
+      ".ui.pagination.menu a.icon.item:last-child:not(.disabled)"
+    ];
+    for (const sel of selectors) {
+      const btn = document.querySelector(sel);
+      if (btn && !btn.classList.contains("disabled")) {
+        return btn;
+      }
+    }
+    return null;
+  }
+  function waitForPageLoad(timeoutMs = 5e3) {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      const check = () => {
+        const groups = getExampleGroups$1();
+        if (groups.length > 0) {
+          resolve(true);
+          return;
+        }
+        if (Date.now() - startTime > timeoutMs) {
+          resolve(false);
+          return;
+        }
+        setTimeout(check, 200);
+      };
+      setTimeout(check, 300);
+    });
+  }
+  async function goToNextPage() {
+    const btn = getNextPageButton();
+    if (!btn) return false;
+    btn.click();
+    return waitForPageLoad();
+  }
+  async function playAudioAtIndex(index) {
+    const groups = getExampleGroups$1();
+    if (index < 0 || index >= groups.length) return false;
+    const group = groups[index];
+    const triggerEl = group.buttonSpanDesktop;
+    try {
+      const captured = await captureAudioUrlFromMining(triggerEl);
+      if (!captured || !captured.url) {
+        console.warn(`[PlayAll] Could not capture audio for index ${index}`);
+        return false;
+      }
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      return new Promise((resolve) => {
+        const audio = new Audio(captured.url);
+        currentAudio = audio;
+        audio.addEventListener("ended", () => {
+          currentAudio = null;
+          resolve(true);
+        });
+        audio.addEventListener("error", (e) => {
+          console.error("[PlayAll] Audio error:", e);
+          currentAudio = null;
+          resolve(false);
+        });
+        audio.play().catch((err) => {
+          console.error("[PlayAll] Play failed:", err);
+          currentAudio = null;
+          resolve(false);
+        });
+      });
+    } catch (err) {
+      console.error("[PlayAll] Error playing audio at index", index, err);
+      return false;
+    }
+  }
+  async function playLoop() {
+    while (state.status === "playing") {
+      const groups = getExampleGroups$1();
+      state.totalOnPage = groups.length;
+      notifyStateChange();
+      if (state.currentIndex >= groups.length) {
+        const hasNextPage = await goToNextPage();
+        if (hasNextPage) {
+          state.currentIndex = 0;
+          notifyStateChange();
+          continue;
+        } else {
+          if (state.loopEnabled) {
+            state.currentIndex = 0;
+            notifyStateChange();
+            continue;
+          } else {
+            state.status = "stopped";
+            state.currentIndex = 0;
+            clearHighlight();
+            notifyStateChange();
+            return;
+          }
+        }
+      }
+      highlightExample(state.currentIndex);
+      await playAudioAtIndex(state.currentIndex);
+      if (getState().status === "paused") {
+        await new Promise((resolve) => {
+          const unsubscribe = onStateChange((s) => {
+            if (s.status !== "paused") {
+              unsubscribe();
+              resolve();
+            }
+          });
+        });
+        if (getState().status === "stopped") {
+          clearHighlight();
+          return;
+        }
+      }
+      if (getState().status === "stopped") {
+        clearHighlight();
+        return;
+      }
+      state.currentIndex++;
+      notifyStateChange();
+    }
+  }
+  function startPlayAll(fromIndex = 0) {
+    if (state.status === "playing") return;
+    state.status = "playing";
+    state.currentIndex = fromIndex;
+    state.totalOnPage = getExampleGroups$1().length;
+    notifyStateChange();
+    playLoop();
+  }
+  function pausePlayback() {
+    if (state.status !== "playing") return;
+    state.status = "paused";
+    if (currentAudio) {
+      currentAudio.pause();
+    }
+    notifyStateChange();
+  }
+  function resumePlayback() {
+    if (state.status !== "paused") return;
+    state.status = "playing";
+    if (currentAudio) {
+      currentAudio.play().catch(console.error);
+    }
+    notifyStateChange();
+    playLoop();
+  }
+  function stopPlayback() {
+    state.status = "stopped";
+    state.currentIndex = 0;
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    clearHighlight();
+    notifyStateChange();
+  }
+  function toggleLoop() {
+    state.loopEnabled = !state.loopEnabled;
+    notifyStateChange();
+  }
+  function skipToNext() {
+    if (state.status === "idle" || state.status === "stopped") return;
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    state.currentIndex++;
+    notifyStateChange();
+  }
+  function skipToPrevious() {
+    if (state.status === "idle" || state.status === "stopped") return;
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (state.currentIndex > 0) {
+      state.currentIndex--;
+    }
+    notifyStateChange();
+  }
+  function handleKeydown(e) {
+    const target = e.target;
+    const tag = (target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable) {
+      return;
+    }
+    switch (e.key.toLowerCase()) {
+      case " ":
+        e.preventDefault();
+        if (state.status === "playing") {
+          pausePlayback();
+        } else if (state.status === "paused") {
+          resumePlayback();
+        } else if (state.status === "idle" || state.status === "stopped") {
+          startPlayAll(0);
+        }
+        break;
+      case "escape":
+        if (state.status !== "idle" && state.status !== "stopped") {
+          e.preventDefault();
+          stopPlayback();
+        }
+        break;
+      case "arrowright":
+        if (state.status === "playing" || state.status === "paused") {
+          e.preventDefault();
+          skipToNext();
+        }
+        break;
+      case "arrowleft":
+        if (state.status === "playing" || state.status === "paused") {
+          e.preventDefault();
+          skipToPrevious();
+        }
+        break;
+      case "l":
+        e.preventDefault();
+        toggleLoop();
+        break;
+    }
+  }
+  function registerKeyboardShortcuts() {
+    if (shortcutRegistered) return;
+    window.addEventListener("keydown", handleKeydown);
+    shortcutRegistered = true;
+  }
+  let barElement = null;
+  function createControlBar() {
+    const bar = document.createElement("div");
+    bar.className = "anki-playall-bar";
+    bar.id = "anki-playall-bar";
+    bar.innerHTML = `
+    <button class="anki-playall-btn primary" data-action="play" title="播放全部 (Space)">
+      ▶ 播放全部
+    </button>
+    <button class="anki-playall-btn warning" data-action="pause" title="暂停 (Space)" style="display: none;">
+      ⏸ 暂停
+    </button>
+    <button class="anki-playall-btn primary" data-action="resume" title="继续 (Space)" style="display: none;">
+      ▶ 继续
+    </button>
+    <button class="anki-playall-btn danger" data-action="stop" title="停止 (Esc)" style="display: none;">
+      ⏹ 停止
+    </button>
+    <button class="anki-playall-btn" data-action="prev" title="上一个 (←)" style="display: none;">
+      ⏮
+    </button>
+    <button class="anki-playall-btn" data-action="next" title="下一个 (→)" style="display: none;">
+      ⏭
+    </button>
+    <div class="anki-playall-progress" style="display: none;">
+      <span class="current">0</span> / <span class="total">0</span>
+    </div>
+    <button class="anki-playall-btn" data-action="loop" title="循环模式 (L)">
+      🔁 循环
+    </button>
+    <div class="anki-playall-shortcuts">
+      <kbd>Space</kbd> 播放/暂停
+      <kbd>Esc</kbd> 停止
+      <kbd>← →</kbd> 上/下一个
+      <kbd>L</kbd> 循环
+    </div>
+  `;
+    bar.querySelectorAll("button[data-action]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const action = btn.dataset.action;
+        switch (action) {
+          case "play":
+            startPlayAll(0);
+            break;
+          case "pause":
+            pausePlayback();
+            break;
+          case "resume":
+            resumePlayback();
+            break;
+          case "stop":
+            stopPlayback();
+            break;
+          case "prev":
+            skipToPrevious();
+            break;
+          case "next":
+            skipToNext();
+            break;
+          case "loop":
+            toggleLoop();
+            break;
+        }
+      });
+    });
+    return bar;
+  }
+  function updateBarUI(state2) {
+    if (!barElement) return;
+    const playBtn = barElement.querySelector('[data-action="play"]');
+    const pauseBtn = barElement.querySelector('[data-action="pause"]');
+    const resumeBtn = barElement.querySelector('[data-action="resume"]');
+    const stopBtn = barElement.querySelector('[data-action="stop"]');
+    const prevBtn = barElement.querySelector('[data-action="prev"]');
+    const nextBtn = barElement.querySelector('[data-action="next"]');
+    const progress = barElement.querySelector(".anki-playall-progress");
+    const loopBtn = barElement.querySelector('[data-action="loop"]');
+    playBtn.style.display = "none";
+    pauseBtn.style.display = "none";
+    resumeBtn.style.display = "none";
+    stopBtn.style.display = "none";
+    prevBtn.style.display = "none";
+    nextBtn.style.display = "none";
+    progress.style.display = "none";
+    switch (state2.status) {
+      case "idle":
+      case "stopped":
+        playBtn.style.display = "";
+        break;
+      case "playing":
+        pauseBtn.style.display = "";
+        stopBtn.style.display = "";
+        prevBtn.style.display = "";
+        nextBtn.style.display = "";
+        progress.style.display = "";
+        break;
+      case "paused":
+        resumeBtn.style.display = "";
+        stopBtn.style.display = "";
+        prevBtn.style.display = "";
+        nextBtn.style.display = "";
+        progress.style.display = "";
+        break;
+    }
+    const currentSpan = progress.querySelector(".current");
+    const totalSpan = progress.querySelector(".total");
+    if (currentSpan) currentSpan.textContent = String(state2.currentIndex + 1);
+    if (totalSpan) totalSpan.textContent = String(state2.totalOnPage);
+    if (state2.loopEnabled) {
+      loopBtn.classList.add("active");
+    } else {
+      loopBtn.classList.remove("active");
+    }
+  }
+  function injectPlayAllBar() {
+    if (document.getElementById("anki-playall-bar")) return;
+    const container = document.querySelector(".ui.divided.items");
+    if (!container || !container.parentElement) return;
+    barElement = createControlBar();
+    container.parentElement.insertBefore(barElement, container);
+    onStateChange(updateBarUI);
+    updateBarUI(getState());
+    registerKeyboardShortcuts();
+  }
   const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1e3;
   let lastAddedNoteId = null;
   let lastAddedAt = 0;
@@ -4030,7 +4704,10 @@ active_effect
       stylesInjected = true;
     }
     observeNewMenus();
-    setTimeout(insertAnkiButtons, 1e3);
+    setTimeout(() => {
+      insertAnkiButtons();
+      injectPlayAllBar();
+    }, 1e3);
   }
   function isDictionaryPage(u) {
     const url = new URL(window.location.href);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.5
+// @version      1.1.6
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -4309,7 +4309,7 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   let lastAddedNoteId = null;
   let lastAddedAt = 0;
   let editorShortcutRegistered = false;
-  function isTextInputTarget(target) {
+  function isTextInputTarget$1(target) {
     if (!target) return false;
     const el = target;
     const tag = (el.tagName || "").toLowerCase();
@@ -4319,7 +4319,7 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   async function handleEditorShortcut(e) {
     const shortcut = (CONFIG.OPEN_EDITOR_KEY || "").trim();
     if (!shortcut) return;
-    if (isTextInputTarget(e.target)) return;
+    if (isTextInputTarget$1(e.target)) return;
     if (!lastAddedNoteId) return;
     if (Date.now() - lastAddedAt > LAST_ADDED_NOTE_EXPIRES_MS) return;
     const pressed = (e.key || "").trim().toLowerCase();
@@ -4660,7 +4660,30 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
       menuEl.appendChild(audioItem);
     }
   }
+  let yahooShortcutRegistered = false;
+  function isTextInputTarget(target) {
+    if (!target) return false;
+    const el = target;
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    return Boolean(el.isContentEditable);
+  }
+  function handleYahooShortcut(e) {
+    if (isTextInputTarget(e.target)) return;
+    const pressed = (e.key || "").trim().toLowerCase();
+    if (pressed !== "y") return;
+    const url = new URL(window.location.href);
+    const keyword = url.searchParams.get("keyword");
+    if (!keyword) return;
+    window.open(`https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`, "_blank");
+  }
+  function registerYahooShortcut() {
+    if (yahooShortcutRegistered) return;
+    window.addEventListener("keydown", handleYahooShortcut);
+    yahooShortcutRegistered = true;
+  }
   function injectYahooSearchButton() {
+    registerYahooShortcut();
     if (document.querySelector('[data-anki="yahoo-search"]')) return;
     const url = new URL(window.location.href);
     const keyword = url.searchParams.get("keyword");

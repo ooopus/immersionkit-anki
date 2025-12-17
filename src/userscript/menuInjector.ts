@@ -56,10 +56,41 @@ export function injectMenuButtons(menuEl: Element, exampleIndex: number): void {
   }
 }
 
+let yahooShortcutRegistered = false;
+
+function isTextInputTarget(target: EventTarget | null): boolean {
+  if (!target) return false;
+  const el = target as HTMLElement;
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  return Boolean(el.isContentEditable);
+}
+
+function handleYahooShortcut(e: KeyboardEvent) {
+  if (isTextInputTarget(e.target)) return;
+  const pressed = (e.key || '').trim().toLowerCase();
+  if (pressed !== 'y') return;
+
+  // Get keyword from URL
+  const url = new URL(window.location.href);
+  const keyword = url.searchParams.get('keyword');
+  if (!keyword) return;
+
+  window.open(`https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`, '_blank');
+}
+
+function registerYahooShortcut() {
+  if (yahooShortcutRegistered) return;
+  window.addEventListener('keydown', handleYahooShortcut);
+  yahooShortcutRegistered = true;
+}
+
 /**
  * Inject Yahoo search button next to the search box.
  */
 export function injectYahooSearchButton(): void {
+  // Register keyboard shortcut
+  registerYahooShortcut();
   // Check if already injected
   if (document.querySelector('[data-anki="yahoo-search"]')) return;
 

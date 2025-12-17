@@ -6,6 +6,8 @@
  * [example-desktop, buttons-desktop, example-mobile, buttons-mobile, context-menu]
  */
 
+import { SELECTORS } from './selectors';
+
 /**
  * Represents a group of elements for one example sentence on the page.
  */
@@ -23,7 +25,7 @@ export interface ExampleGroup {
  * Each example has 5 consecutive elements in .ui.divided.items container.
  */
 export function getExampleGroups(): ExampleGroup[] {
-  const container = document.querySelector('.ui.divided.items');
+  const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
   if (!container) return [];
 
   const children = Array.from(container.children);
@@ -58,7 +60,7 @@ export function getExampleItems(): Element[] {
  * Uses the 5-element grouping pattern to determine position.
  */
 export function getExampleIndexFromMenu(menuEl: Element): number {
-  const container = document.querySelector('.ui.divided.items');
+  const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
   if (!container) return 0;
 
   const children = Array.from(container.children);
@@ -75,9 +77,9 @@ export function getExampleIndexFromMenu(menuEl: Element): number {
  * Validate the page structure matches our expected 5-element grouping pattern.
  */
 export function validatePageStructure(): { valid: boolean; reason?: string } {
-  const container = document.querySelector('.ui.divided.items');
+  const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
   if (!container) {
-    return { valid: false, reason: 'No .ui.divided.items container found' };
+    return { valid: false, reason: `No ${SELECTORS.EXAMPLES_CONTAINER} container found` };
   }
 
   const children = Array.from(container.children);
@@ -97,7 +99,7 @@ export function validatePageStructure(): { valid: boolean; reason?: string } {
     const hasExpectedPattern =
       firstExample?.classList.contains('item') &&
       firstButtonSpan?.tagName === 'SPAN' &&
-      firstButtonSpan?.querySelector('.ui.secondary.menu');
+      firstButtonSpan?.querySelector(SELECTORS.SECONDARY_MENU);
 
     if (!hasExpectedPattern) {
       return { valid: false, reason: 'Structure pattern mismatch' };

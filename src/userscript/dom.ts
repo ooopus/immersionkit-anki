@@ -1,6 +1,6 @@
 import { GM_addStyle } from '$';
 import modalCss from './modal.css?raw';
-export type ButtonState = 'idle' | 'pending' | 'success' | 'error';
+import type { ButtonState } from './types';
 
 export function setButtonState(el: Element | null, state: ButtonState, text?: string) {
   if (!el) return;

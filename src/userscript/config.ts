@@ -1,4 +1,4 @@
-export type TargetNoteMode = 'recent' | 'selected';
+import type { TargetNoteMode } from './types';
 
 export interface ScriptConfig {
   ANKI_CONNECT_URL: string;

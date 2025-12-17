@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.4
+// @version      1.1.5
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -3646,14 +3646,51 @@ active_effect
       }
     });
   }
-  function $all(sel, root2 = document) {
-    return Array.from(root2.querySelectorAll(sel));
-  }
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
+  function resolveAbsoluteUrl(srcAttr) {
+    try {
+      return new URL(srcAttr, window.location.origin).href;
+    } catch {
+      return srcAttr;
+    }
+  }
+  function filenameFromUrl(u, fallback) {
+    try {
+      const name = (new URL(u).pathname.split("/").pop() || "").split("?")[0];
+      return decodeURIComponent(name) || fallback;
+    } catch {
+      const p = (u || "").split("/").pop() || "";
+      return decodeURIComponent(p.split("?")[0]) || fallback;
+    }
+  }
   function isHttpUrl(text) {
     return typeof text === "string" && /^https?:\/\//i.test(text);
+  }
+  function $all(sel, root2 = document) {
+    return Array.from(root2.querySelectorAll(sel));
+  }
+  function waitForElement(selector, timeoutMs = 1e4) {
+    return new Promise((resolve) => {
+      const existing = document.querySelector(selector);
+      if (existing) {
+        resolve(existing);
+        return;
+      }
+      const observer = new MutationObserver(() => {
+        const el = document.querySelector(selector);
+        if (el) {
+          observer.disconnect();
+          resolve(el);
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => {
+        observer.disconnect();
+        resolve(document.querySelector(selector));
+      }, timeoutMs);
+    });
   }
   function findSecondaryMenuFromTrigger(triggerEl) {
     if (!triggerEl) return null;
@@ -3689,15 +3726,6 @@ active_effect
       (el) => !!(el.querySelector("i.sound.icon") || /sound|audio/i.test((el.textContent || "").trim()))
     );
     return b || null;
-  }
-  function filenameFromUrl$1(u, fallback) {
-    try {
-      const name = (new URL(u).pathname.split("/").pop() || "").split("?")[0];
-      return decodeURIComponent(name) || fallback;
-    } catch {
-      const p = (u || "").split("/").pop() || "";
-      return decodeURIComponent(p.split("?")[0]) || fallback;
-    }
   }
   async function captureAudioUrlFromMining(triggerEl) {
     const menu = findSecondaryMenuFromTrigger(triggerEl);
@@ -3802,8 +3830,72 @@ active_effect
     cleanup();
     const finalUrl = captured.fromWriteText || captured.fromCopy;
     if (!finalUrl || !isHttpUrl(finalUrl)) return null;
-    const filename = filenameFromUrl$1(finalUrl, "audio.mp3");
+    const filename = filenameFromUrl(finalUrl, "audio.mp3");
     return { url: finalUrl, filename };
+  }
+  const SELECTORS = {
+EXAMPLES_CONTAINER: ".ui.divided.items",
+SECONDARY_MENU: ".ui.secondary.menu",
+NEXT_PAGE: [
+      'a.icon.item[aria-label="Next item"]',
+      "a.icon.item:has(i.right.chevron.icon)",
+      ".ui.pagination.menu a.icon.item:last-child:not(.disabled)"
+    ],
+PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
+  };
+  const CLASSES = {
+    HIGHLIGHT: "anki-playall-highlight"
+  };
+  function getExampleGroups() {
+    const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
+    if (!container) return [];
+    const children = Array.from(container.children);
+    const groups = [];
+    for (let i = 0; i + 4 < children.length; i += 5) {
+      groups.push({
+        exampleDesktop: children[i],
+        buttonSpanDesktop: children[i + 1],
+        exampleMobile: children[i + 2],
+        buttonSpanMobile: children[i + 3],
+        contextMenu: children[i + 4],
+        index: Math.floor(i / 5)
+      });
+    }
+    return groups;
+  }
+  function getExampleItems() {
+    const groups = getExampleGroups();
+    return groups.map((g) => g.exampleDesktop);
+  }
+  function getExampleIndexFromMenu(menuEl) {
+    const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
+    if (!container) return 0;
+    const children = Array.from(container.children);
+    const spanIndex = children.findIndex((child2) => child2.contains(menuEl));
+    if (spanIndex === -1) return 0;
+    return Math.floor(spanIndex / 5);
+  }
+  function validatePageStructure() {
+    const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
+    if (!container) {
+      return { valid: false, reason: `No ${SELECTORS.EXAMPLES_CONTAINER} container found` };
+    }
+    const children = Array.from(container.children);
+    if (children.length === 0) {
+      return { valid: false, reason: "Container is empty" };
+    }
+    if (children.length % 5 !== 0) {
+      console.warn(`ImmersionKit → Anki: Unexpected children count: ${children.length} (expected multiple of 5)`);
+    }
+    if (children.length >= 5) {
+      const firstExample = children[0];
+      const firstButtonSpan = children[1];
+      const hasExpectedPattern = firstExample?.classList.contains("item") && firstButtonSpan?.tagName === "SPAN" && firstButtonSpan?.querySelector(SELECTORS.SECONDARY_MENU);
+      if (!hasExpectedPattern) {
+        return { valid: false, reason: "Structure pattern mismatch" };
+      }
+    }
+    return { valid: true };
   }
   const state = {
     status: "idle",
@@ -3829,45 +3921,23 @@ active_effect
   function getState() {
     return { ...state };
   }
-  function getExampleGroups$1() {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) return [];
-    const children = Array.from(container.children);
-    const groups = [];
-    for (let i = 0; i + 4 < children.length; i += 5) {
-      groups.push({
-        exampleDesktop: children[i],
-        buttonSpanDesktop: children[i + 1],
-        exampleMobile: children[i + 2],
-        buttonSpanMobile: children[i + 3],
-        contextMenu: children[i + 4],
-        index: Math.floor(i / 5)
-      });
-    }
-    return groups;
-  }
   function highlightExample(index) {
-    document.querySelectorAll(".anki-playall-highlight").forEach((el) => {
-      el.classList.remove("anki-playall-highlight");
+    document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
+      el.classList.remove(CLASSES.HIGHLIGHT);
     });
-    const groups = getExampleGroups$1();
+    const groups = getExampleGroups();
     const group = groups[index];
     if (!group) return;
-    group.exampleDesktop.classList.add("anki-playall-highlight");
+    group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
     group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   function clearHighlight() {
-    document.querySelectorAll(".anki-playall-highlight").forEach((el) => {
-      el.classList.remove("anki-playall-highlight");
+    document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
+      el.classList.remove(CLASSES.HIGHLIGHT);
     });
   }
   function getNextPageButton() {
-    const selectors = [
-      'a.icon.item[aria-label="Next item"]',
-      "a.icon.item:has(i.right.chevron.icon)",
-      ".ui.pagination.menu a.icon.item:last-child:not(.disabled)"
-    ];
-    for (const sel of selectors) {
+    for (const sel of SELECTORS.NEXT_PAGE) {
       const btn = document.querySelector(sel);
       if (btn && !btn.classList.contains("disabled")) {
         return btn;
@@ -3879,7 +3949,7 @@ active_effect
     return new Promise((resolve) => {
       const startTime = Date.now();
       const check = () => {
-        const groups = getExampleGroups$1();
+        const groups = getExampleGroups();
         if (groups.length > 0) {
           resolve(true);
           return;
@@ -3900,7 +3970,7 @@ active_effect
     return waitForPageLoad();
   }
   async function playAudioAtIndex(index) {
-    const groups = getExampleGroups$1();
+    const groups = getExampleGroups();
     if (index < 0 || index >= groups.length) return false;
     const group = groups[index];
     const triggerEl = group.buttonSpanDesktop;
@@ -3947,7 +4017,7 @@ active_effect
   }
   async function playLoop() {
     while (state.status === "playing") {
-      const groups = getExampleGroups$1();
+      const groups = getExampleGroups();
       state.totalOnPage = groups.length;
       notifyStateChange();
       if (state.currentIndex >= groups.length) {
@@ -4001,7 +4071,7 @@ active_effect
     if (state.status === "playing") return;
     state.status = "playing";
     state.currentIndex = fromIndex;
-    state.totalOnPage = getExampleGroups$1().length;
+    state.totalOnPage = getExampleGroups().length;
     notifyStateChange();
     playLoop();
   }
@@ -4235,57 +4305,6 @@ active_effect
     updateBarUI(getState());
     registerKeyboardShortcuts();
   }
-  function getExampleGroups() {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) return [];
-    const children = Array.from(container.children);
-    const groups = [];
-    for (let i = 0; i + 4 < children.length; i += 5) {
-      groups.push({
-        exampleDesktop: children[i],
-        buttonSpanDesktop: children[i + 1],
-        exampleMobile: children[i + 2],
-        buttonSpanMobile: children[i + 3],
-        contextMenu: children[i + 4],
-        index: Math.floor(i / 5)
-      });
-    }
-    return groups;
-  }
-  function getExampleItems() {
-    const groups = getExampleGroups();
-    return groups.map((g) => g.exampleDesktop);
-  }
-  function getExampleIndexFromMenu(menuEl) {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) return 0;
-    const children = Array.from(container.children);
-    const spanIndex = children.findIndex((child2) => child2.contains(menuEl));
-    if (spanIndex === -1) return 0;
-    return Math.floor(spanIndex / 5);
-  }
-  function validatePageStructure() {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) {
-      return { valid: false, reason: "No .ui.divided.items container found" };
-    }
-    const children = Array.from(container.children);
-    if (children.length === 0) {
-      return { valid: false, reason: "Container is empty" };
-    }
-    if (children.length % 5 !== 0) {
-      console.warn(`ImmersionKit → Anki: Unexpected children count: ${children.length} (expected multiple of 5)`);
-    }
-    if (children.length >= 5) {
-      const firstExample = children[0];
-      const firstButtonSpan = children[1];
-      const hasExpectedPattern = firstExample?.classList.contains("item") && firstButtonSpan?.tagName === "SPAN" && firstButtonSpan?.querySelector(".ui.secondary.menu");
-      if (!hasExpectedPattern) {
-        return { valid: false, reason: "Structure pattern mismatch" };
-      }
-    }
-    return { valid: true };
-  }
   const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1e3;
   let lastAddedNoteId = null;
   let lastAddedAt = 0;
@@ -4362,22 +4381,6 @@ active_effect
         openAnchor.dataset.ankiOpenId = String(noteId);
         return;
       }
-    }
-  }
-  function resolveAbsoluteUrl(srcAttr) {
-    try {
-      return new URL(srcAttr, window.location.origin).href;
-    } catch {
-      return srcAttr;
-    }
-  }
-  function filenameFromUrl(u, fallback) {
-    try {
-      const name = (new URL(u).pathname.split("/").pop() || "").split("?")[0];
-      return decodeURIComponent(name) || fallback;
-    } catch {
-      const p = (u || "").split("/").pop() || "";
-      return decodeURIComponent(p.split("?")[0]) || fallback;
     }
   }
   function escapeHtml(s) {
@@ -4747,11 +4750,11 @@ active_effect
       stylesInjected = true;
     }
     observeNewMenus();
-    setTimeout(() => {
+    waitForElement(SELECTORS.EXAMPLES_CONTAINER).then(() => {
       insertAnkiButtons();
       injectPlayAllBar();
       injectYahooSearchButton();
-    }, 1e3);
+    });
   }
   function isDictionaryPage(u) {
     const url = new URL(window.location.href);

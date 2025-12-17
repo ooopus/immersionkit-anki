@@ -1,16 +1,6 @@
 import { CONFIG } from './config';
 import { GM_getValue, GM_setValue } from '$';
-
-export type Settings = {
-    ankiUrl: string;
-    ankiKey: string;
-    imageField: string;
-    audioField: string;
-    exampleIndex: number;
-    confirmOverwrite: boolean;
-    targetNoteMode: 'recent' | 'selected';
-    openEditorKey: string;
-};
+import type { Settings } from './types';
 
 export function getSettings(): Settings {
     const savedOpenEditorKey = GM_getValue?.('openEditorKey');

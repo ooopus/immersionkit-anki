@@ -1,16 +1,6 @@
 import { CONFIG } from './config';
+import { sleep, filenameFromUrl, isHttpUrl, $all } from './utils';
 
-function $all(sel: string, root: Document | Element = document): Element[] {
-  return Array.from(root.querySelectorAll(sel));
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function isHttpUrl(text: unknown): text is string {
-  return typeof text === 'string' && /^https?:\/\//i.test(text);
-}
 
 function findSecondaryMenuFromTrigger(triggerEl?: Element | null): Element | null {
   if (!triggerEl) return null;
@@ -54,16 +44,6 @@ function findSoundButton(seg: Element | null): HTMLButtonElement | null {
     (el) => !!(el.querySelector('i.sound.icon') || /sound|audio/i.test((el.textContent || '').trim())),
   );
   return (b as HTMLButtonElement) || null;
-}
-
-function filenameFromUrl(u: string, fallback: string): string {
-  try {
-    const name = (new URL(u).pathname.split('/').pop() || '').split('?')[0];
-    return decodeURIComponent(name) || fallback;
-  } catch {
-    const p = (u || '').split('/').pop() || '';
-    return decodeURIComponent(p.split('?')[0]) || fallback;
-  }
 }
 
 export async function captureAudioUrlFromMining(triggerEl?: Element | null): Promise<{ url: string; filename: string } | null> {

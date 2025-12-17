@@ -4,19 +4,12 @@
  */
 
 import { captureAudioUrlFromMining } from './miningSoundCapture';
+import { getExampleGroups } from './exampleGroup';
+import { SELECTORS, CLASSES } from './selectors';
+import type { PlayAllStatus, PlayAllState } from './types';
 
-// ============================================================================
-// Types & State
-// ============================================================================
-
-export type PlayAllStatus = 'idle' | 'playing' | 'paused' | 'stopped';
-
-export interface PlayAllState {
-  status: PlayAllStatus;
-  currentIndex: number;
-  totalOnPage: number;
-  loopEnabled: boolean;
-}
+// Re-export types for consumers
+export type { PlayAllStatus, PlayAllState };
 
 const state: PlayAllState = {
   status: 'idle',
@@ -54,44 +47,10 @@ export function getState(): PlayAllState {
   return { ...state };
 }
 
-// ============================================================================
-// DOM Helpers
-// ============================================================================
-
-interface ExampleGroup {
-  exampleDesktop: Element;
-  buttonSpanDesktop: Element;
-  exampleMobile: Element;
-  buttonSpanMobile: Element;
-  contextMenu: Element;
-  index: number;
-}
-
-function getExampleGroups(): ExampleGroup[] {
-  const container = document.querySelector('.ui.divided.items');
-  if (!container) return [];
-
-  const children = Array.from(container.children);
-  const groups: ExampleGroup[] = [];
-
-  for (let i = 0; i + 4 < children.length; i += 5) {
-    groups.push({
-      exampleDesktop: children[i],
-      buttonSpanDesktop: children[i + 1],
-      exampleMobile: children[i + 2],
-      buttonSpanMobile: children[i + 3],
-      contextMenu: children[i + 4],
-      index: Math.floor(i / 5),
-    });
-  }
-
-  return groups;
-}
-
 function highlightExample(index: number) {
   // Remove previous highlight
-  document.querySelectorAll('.anki-playall-highlight').forEach((el) => {
-    el.classList.remove('anki-playall-highlight');
+  document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
+    el.classList.remove(CLASSES.HIGHLIGHT);
   });
 
   const groups = getExampleGroups();
@@ -99,15 +58,15 @@ function highlightExample(index: number) {
   if (!group) return;
 
   // Add highlight to desktop example
-  group.exampleDesktop.classList.add('anki-playall-highlight');
+  group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
 
   // Scroll into view
   group.exampleDesktop.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function clearHighlight() {
-  document.querySelectorAll('.anki-playall-highlight').forEach((el) => {
-    el.classList.remove('anki-playall-highlight');
+  document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
+    el.classList.remove(CLASSES.HIGHLIGHT);
   });
 }
 
@@ -117,13 +76,7 @@ function clearHighlight() {
 
 function getNextPageButton(): HTMLElement | null {
   // Common pagination patterns in ImmersionKit
-  const selectors = [
-    'a.icon.item[aria-label="Next item"]',
-    'a.icon.item:has(i.right.chevron.icon)',
-    '.ui.pagination.menu a.icon.item:last-child:not(.disabled)',
-  ];
-
-  for (const sel of selectors) {
+  for (const sel of SELECTORS.NEXT_PAGE) {
     const btn = document.querySelector(sel) as HTMLElement | null;
     if (btn && !btn.classList.contains('disabled')) {
       return btn;

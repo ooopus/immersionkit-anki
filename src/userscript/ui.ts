@@ -10,6 +10,8 @@ import { GM_registerMenuCommand } from '$';
 import { openSettingsOverlay } from './settings-ui';
 import { injectPlayAllBar } from './playAllBar';
 import { insertAnkiButtons, observeNewMenus, injectYahooSearchButton } from './menuInjector';
+import { waitForElement } from './utils';
+import { SELECTORS } from './selectors';
 
 let stylesInjected = false;
 
@@ -19,11 +21,13 @@ function init() {
     stylesInjected = true;
   }
   observeNewMenus();
-  setTimeout(() => {
+  
+  // Wait for the examples container to appear before injecting buttons
+  waitForElement(SELECTORS.EXAMPLES_CONTAINER).then(() => {
     insertAnkiButtons();
     injectPlayAllBar();
     injectYahooSearchButton();
-  }, 1000);
+  });
 }
 
 function isDictionaryPage(u?: URL) {

@@ -10,25 +10,8 @@ import { getSuccessText, revertButtonState, setButtonState, showModal } from './
 import { captureAudioUrlFromMining } from './miningSoundCapture';
 import { getExampleGroups, getExampleItems } from './exampleGroup';
 import { setLastAddedNote, ensureOpenEditorControl } from './editorControl';
-import type { AnkiNoteInfo } from './types';
-
-// ============================================================================
-// URL and Filename Utilities
-// ============================================================================
-
-function resolveAbsoluteUrl(srcAttr: string): string {
-  try { return new URL(srcAttr, window.location.origin).href; } catch { return srcAttr; }
-}
-
-function filenameFromUrl(u: string, fallback: string): string {
-  try {
-    const name = (new URL(u).pathname.split('/').pop() || '').split('?')[0];
-    return decodeURIComponent(name) || fallback;
-  } catch {
-    const p = (u || '').split('/').pop() || '';
-    return decodeURIComponent(p.split('?')[0]) || fallback;
-  }
-}
+import { resolveAbsoluteUrl, filenameFromUrl } from './utils';
+import type { AnkiNoteInfo, AddMediaOptions } from './types';
 
 export function escapeHtml(s: string) {
   return s
@@ -86,10 +69,6 @@ export function hasImageAtIndex(index: number): boolean {
 // Media Adding
 // ============================================================================
 
-export interface AddMediaOptions {
-  skipButtonState?: boolean;
-  skipEnsureOpen?: boolean;
-}
 
 export async function addMediaToAnkiForIndex(
   mediaType: 'picture' | 'audio',

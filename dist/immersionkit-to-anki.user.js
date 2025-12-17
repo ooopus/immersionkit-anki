@@ -23,183 +23,11 @@
 
   e(" .ik-anki-overlay.svelte-ny9p3g{position:fixed;inset:0;background:#00000073;z-index:999999;display:grid;place-items:center;padding:20px}.ik-anki-panel.svelte-ny9p3g{width:min(680px,100%);background:#0f1227;color:#e7e9f0;border-radius:12px;box-shadow:0 10px 30px #00000059;border:1px solid rgba(255,255,255,.08);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}header.svelte-ny9p3g{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}header.svelte-ny9p3g h2:where(.svelte-ny9p3g){margin:0;font-size:16px;font-weight:600}header.svelte-ny9p3g .icon:where(.svelte-ny9p3g){border:none;background:transparent;color:#c7cbe1;cursor:pointer;font-size:18px;line-height:1;padding:6px;border-radius:6px}header.svelte-ny9p3g .icon:where(.svelte-ny9p3g):hover{background:#ffffff0f}main.svelte-ny9p3g{padding:16px;display:grid;gap:12px}label.svelte-ny9p3g{font-size:12px;color:#aab0d0}input[type=text].svelte-ny9p3g,input[type=password].svelte-ny9p3g,input[type=number].svelte-ny9p3g{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#111533;color:#e7e9f0;outline:none}input.svelte-ny9p3g:focus{border-color:#6ea8fe;box-shadow:0 0 0 3px #6ea8fe26}.row.svelte-ny9p3g{display:grid;gap:12px;grid-template-columns:1fr 1fr}.col.checkbox.svelte-ny9p3g{display:flex;align-items:end;gap:8px}.test.svelte-ny9p3g{display:flex;align-items:center;gap:10px}.test.svelte-ny9p3g span:where(.svelte-ny9p3g){font-size:12px}.test.svelte-ny9p3g span.ok:where(.svelte-ny9p3g){color:#5dd39e}.test.svelte-ny9p3g span.fail:where(.svelte-ny9p3g){color:#ff6b6b}.alert.error.svelte-ny9p3g{background:#ff6b6b14;color:#ffb3b3;border:1px solid rgba(255,107,107,.35);padding:10px 12px;border-radius:8px}footer.svelte-ny9p3g{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);background:#0c0f22}button.svelte-ny9p3g{cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid transparent;font-size:14px}.primary.svelte-ny9p3g{background:#6ea8fe;color:#071223;border-color:#6ea8fe}.primary.svelte-ny9p3g:hover{filter:brightness(1.05)}.ghost.svelte-ny9p3g{background:transparent;color:#c7cbe1;border-color:#fff3}.ghost.svelte-ny9p3g:hover{background:#ffffff0f}.secondary.svelte-ny9p3g{background:#2a2f52;color:#e7e9f0;border-color:#ffffff1f} ");
 
-  const CONFIG = {
-    ANKI_CONNECT_URL: "http://127.0.0.1:8765",
-    ANKI_CONNECT_KEY: null,
-    IMAGE_FIELD_NAME: "Picture",
-    AUDIO_FIELD_NAME: "SentenceAudio",
-    EXAMPLE_INDEX: 0,
-    CONFIRM_OVERWRITE: true,
-    TARGET_NOTE_MODE: "recent",
-    CAPTURE_TIMEOUT_MS: 2e3,
-    OPEN_EDITOR_KEY: "e"
-  };
   var _GM_addStyle = (() => typeof GM_addStyle != "undefined" ? GM_addStyle : void 0)();
   var _GM_getValue = (() => typeof GM_getValue != "undefined" ? GM_getValue : void 0)();
   var _GM_registerMenuCommand = (() => typeof GM_registerMenuCommand != "undefined" ? GM_registerMenuCommand : void 0)();
   var _GM_setValue = (() => typeof GM_setValue != "undefined" ? GM_setValue : void 0)();
   var _GM_xmlhttpRequest = (() => typeof GM_xmlhttpRequest != "undefined" ? GM_xmlhttpRequest : void 0)();
-  function isObject(value) {
-    return typeof value === "object" && value !== null;
-  }
-  function hasProp(obj, key) {
-    return isObject(obj) && key in obj;
-  }
-  function invokeAnkiConnect(action, params = {}) {
-    const payload = { action, version: 6, params };
-    if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
-    const endpoints = [CONFIG.ANKI_CONNECT_URL, "http://localhost:8765"];
-    console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
-    return new Promise((resolve, reject) => {
-      let tried = 0;
-      function tryNext() {
-        if (tried >= endpoints.length) {
-          console.error("[AnkiConnect] 所有端点连接失败");
-          reject(new Error("Failed to connect to AnkiConnect. Is Anki running?"));
-          return;
-        }
-        const url = endpoints[tried++];
-        console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${tried}/${endpoints.length})`);
-        _GM_xmlhttpRequest({
-          method: "POST",
-          url,
-          data: JSON.stringify(payload),
-          headers: { "Content-Type": "application/json" },
-          onload: (res) => {
-            console.log(`[AnkiConnect] 响应状态: ${res.status}`);
-            console.log(`[AnkiConnect] 响应原始内容 (前500字符):`, res.responseText.substring(0, 500));
-            try {
-              const data = JSON.parse(res.responseText);
-              console.log(`[AnkiConnect] 解析后的数据:`, data);
-              if (hasProp(data, "error") && hasProp(data, "result")) {
-                const envelope = data;
-                if (envelope.error) {
-                  console.error(`[AnkiConnect] API错误: ${envelope.error}`);
-                  reject(new Error(envelope.error));
-                } else {
-                  console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, envelope.result);
-                  resolve(envelope.result);
-                }
-              } else if (hasProp(data, "result")) {
-                console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, data.result);
-                resolve(data.result);
-              } else {
-                console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, data);
-                resolve(data);
-              }
-            } catch (e) {
-              console.error("[AnkiConnect] 解析响应失败:", e);
-              console.error("[AnkiConnect] 错误堆栈:", e instanceof Error ? e.stack : String(e));
-              console.error("[AnkiConnect] 响应内容:", res.responseText.substring(0, 500));
-              reject(new Error("Failed to parse AnkiConnect response: " + e));
-            }
-          },
-          onerror: (err) => {
-            console.warn(`[AnkiConnect] 连接失败: ${url}`, err);
-            tryNext();
-          }
-        });
-      }
-      tryNext();
-    });
-  }
-  async function getMostRecentNoteId() {
-    console.log("[AnkiConnect] 获取最近笔记ID...");
-    const recentCards = await invokeAnkiConnect("findCards", { query: "added:1" });
-    console.log(`[AnkiConnect] 找到 ${recentCards?.length || 0} 张最近添加的卡片`);
-    if (!recentCards || recentCards.length === 0) {
-      console.error("[AnkiConnect] 过去24小时内未添加卡片");
-      throw new Error("No cards added in the last 24 hours");
-    }
-    const mostRecentCard = Math.max(...recentCards);
-    console.log(`[AnkiConnect] 最近卡片ID: ${mostRecentCard}`);
-    const noteIds = await invokeAnkiConnect("cardsToNotes", { cards: [mostRecentCard] });
-    const noteId = Array.isArray(noteIds) ? noteIds[0] : noteIds;
-    if (!noteId) {
-      console.error("[AnkiConnect] 无法将卡片解析为笔记");
-      throw new Error("Could not resolve card to note");
-    }
-    console.log(`[AnkiConnect] 最近笔记ID: ${noteId}`);
-    return noteId;
-  }
-  async function getNoteInfo(noteId) {
-    console.log(`[AnkiConnect] getNoteInfo: noteId=${noteId}`);
-    const noteInfoList = await invokeAnkiConnect("notesInfo", { notes: [noteId] });
-    console.log(`[AnkiConnect] getNoteInfo 返回数据:`, noteInfoList);
-    const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
-    console.log(`[AnkiConnect] getNoteInfo 解析后:`, noteInfo);
-    return noteInfo || null;
-  }
-  async function ensureFieldOnNote(noteId, fieldName) {
-    console.log(`[AnkiConnect] 验证字段: noteId=${noteId}, fieldName="${fieldName}"`);
-    const noteInfoList = await invokeAnkiConnect("notesInfo", { notes: [noteId] });
-    const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
-    if (!noteInfo) {
-      console.error(`[AnkiConnect] 未找到笔记: ${noteId}`);
-      throw new Error(`Note ${noteId} not found`);
-    }
-    console.log(`[AnkiConnect] 笔记类型: ${noteInfo.modelName}`);
-    console.log(`[AnkiConnect] 可用字段: ${Object.keys(noteInfo.fields || {}).join(", ")}`);
-    if (!noteInfo.fields || !(fieldName in noteInfo.fields)) {
-      console.error(`[AnkiConnect] 字段 "${fieldName}" 不存在于笔记上`);
-      throw new Error(`Field "${fieldName}" does not exist on the note`);
-    }
-    console.log(`[AnkiConnect] ✓ 字段验证通过`);
-  }
-  async function attachMedia(noteId, mediaType, media, fieldName) {
-    console.log(`[AnkiConnect] attachMedia 开始: noteId=${noteId}, mediaType=${mediaType}, url=${media.url}, filename=${media.filename}, field=${fieldName}`);
-    try {
-      console.log("[AnkiConnect] 步骤1: 下载媒体文件到 Anki...");
-      const storedFilename = await invokeAnkiConnect("storeMediaFile", {
-        filename: media.filename,
-        url: media.url
-      });
-      console.log(`[AnkiConnect] 媒体文件已存储: ${storedFilename}`);
-      let fieldValue = "";
-      if (mediaType === "picture") {
-        fieldValue = `<img src="${storedFilename}">`;
-        console.log(`[AnkiConnect] 构建图片字段值: ${fieldValue}`);
-      } else {
-        fieldValue = `[sound:${storedFilename}]`;
-        console.log(`[AnkiConnect] 构建音频字段值: ${fieldValue}`);
-      }
-      console.log("[AnkiConnect] 步骤2: 更新笔记字段...");
-      await invokeAnkiConnect("updateNoteFields", {
-        note: {
-          id: noteId,
-          fields: {
-            [fieldName]: fieldValue
-          }
-        }
-      });
-      console.log("[AnkiConnect] 字段更新请求已发送");
-      console.log("[AnkiConnect] 步骤3: 验证字段是否真的更新了...");
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const updatedNoteInfo = await getNoteInfo(noteId);
-      console.log("[AnkiConnect] 更新后的笔记信息:", updatedNoteInfo);
-      const actualFieldValue = updatedNoteInfo?.fields?.[fieldName]?.value || "";
-      console.log(`[AnkiConnect] 字段 "${fieldName}" 的实际值:`, actualFieldValue);
-      if (!actualFieldValue || actualFieldValue.trim().length === 0) {
-        console.error(`[AnkiConnect] ✗ 验证失败: 字段 "${fieldName}" 为空！`);
-        throw new Error(`Field "${fieldName}" is still empty after update`);
-      }
-      console.log("[AnkiConnect] ✓ 验证通过: 字段已有内容");
-      console.log("[AnkiConnect] ✓ 媒体附加成功");
-    } catch (error) {
-      console.error("[AnkiConnect] ✗ attachMedia 失败:", error);
-      throw error;
-    }
-  }
-  async function getSelectedNoteIds() {
-    console.log("[AnkiConnect] 获取选中笔记ID...");
-    const ids = await invokeAnkiConnect("guiSelectedNotes");
-    const result = Array.isArray(ids) ? ids : [];
-    console.log(`[AnkiConnect] 选中笔记数量: ${result.length}`, result);
-    return result;
-  }
-  async function openNoteEditor(noteId) {
-    await invokeAnkiConnect("guiEditNote", { note: noteId });
-  }
   const modalCss = `.anki-feedback-pending {\r
     opacity: .7;\r
     pointer-events: none;\r
@@ -3441,6 +3269,17 @@ active_effect
       })
     );
   }
+  const CONFIG = {
+    ANKI_CONNECT_URL: "http://127.0.0.1:8765",
+    ANKI_CONNECT_KEY: null,
+    IMAGE_FIELD_NAME: "Picture",
+    AUDIO_FIELD_NAME: "SentenceAudio",
+    EXAMPLE_INDEX: 0,
+    CONFIRM_OVERWRITE: true,
+    TARGET_NOTE_MODE: "recent",
+    CAPTURE_TIMEOUT_MS: 2e3,
+    OPEN_EDITOR_KEY: "e"
+  };
   function getSettings() {
     const savedOpenEditorKey = _GM_getValue?.("openEditorKey");
     return {
@@ -3472,6 +3311,167 @@ active_effect
     CONFIG.CONFIRM_OVERWRITE = !!s.confirmOverwrite;
     CONFIG.TARGET_NOTE_MODE = s.targetNoteMode === "selected" ? "selected" : "recent";
     CONFIG.OPEN_EDITOR_KEY = openEditorKey;
+  }
+  function isObject(value) {
+    return typeof value === "object" && value !== null;
+  }
+  function hasProp(obj, key) {
+    return isObject(obj) && key in obj;
+  }
+  function invokeAnkiConnect(action, params = {}) {
+    const payload = { action, version: 6, params };
+    if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
+    const endpoints = [CONFIG.ANKI_CONNECT_URL, "http://localhost:8765"];
+    console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
+    return new Promise((resolve, reject) => {
+      let tried = 0;
+      function tryNext() {
+        if (tried >= endpoints.length) {
+          console.error("[AnkiConnect] 所有端点连接失败");
+          reject(new Error("Failed to connect to AnkiConnect. Is Anki running?"));
+          return;
+        }
+        const url = endpoints[tried++];
+        console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${tried}/${endpoints.length})`);
+        _GM_xmlhttpRequest({
+          method: "POST",
+          url,
+          data: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+          onload: (res) => {
+            console.log(`[AnkiConnect] 响应状态: ${res.status}`);
+            console.log(`[AnkiConnect] 响应原始内容 (前500字符):`, res.responseText.substring(0, 500));
+            try {
+              const data = JSON.parse(res.responseText);
+              console.log(`[AnkiConnect] 解析后的数据:`, data);
+              if (hasProp(data, "error") && hasProp(data, "result")) {
+                const envelope = data;
+                if (envelope.error) {
+                  console.error(`[AnkiConnect] API错误: ${envelope.error}`);
+                  reject(new Error(envelope.error));
+                } else {
+                  console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, envelope.result);
+                  resolve(envelope.result);
+                }
+              } else if (hasProp(data, "result")) {
+                console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, data.result);
+                resolve(data.result);
+              } else {
+                console.log(`[AnkiConnect] ✓ 成功: action="${action}"`, data);
+                resolve(data);
+              }
+            } catch (e) {
+              console.error("[AnkiConnect] 解析响应失败:", e);
+              console.error("[AnkiConnect] 错误堆栈:", e instanceof Error ? e.stack : String(e));
+              console.error("[AnkiConnect] 响应内容:", res.responseText.substring(0, 500));
+              reject(new Error("Failed to parse AnkiConnect response: " + e));
+            }
+          },
+          onerror: (err) => {
+            console.warn(`[AnkiConnect] 连接失败: ${url}`, err);
+            tryNext();
+          }
+        });
+      }
+      tryNext();
+    });
+  }
+  async function getMostRecentNoteId() {
+    console.log("[AnkiConnect] 获取最近笔记ID...");
+    const recentCards = await invokeAnkiConnect("findCards", { query: "added:1" });
+    console.log(`[AnkiConnect] 找到 ${recentCards?.length || 0} 张最近添加的卡片`);
+    if (!recentCards || recentCards.length === 0) {
+      console.error("[AnkiConnect] 过去24小时内未添加卡片");
+      throw new Error("No cards added in the last 24 hours");
+    }
+    const mostRecentCard = Math.max(...recentCards);
+    console.log(`[AnkiConnect] 最近卡片ID: ${mostRecentCard}`);
+    const noteIds = await invokeAnkiConnect("cardsToNotes", { cards: [mostRecentCard] });
+    const noteId = Array.isArray(noteIds) ? noteIds[0] : noteIds;
+    if (!noteId) {
+      console.error("[AnkiConnect] 无法将卡片解析为笔记");
+      throw new Error("Could not resolve card to note");
+    }
+    console.log(`[AnkiConnect] 最近笔记ID: ${noteId}`);
+    return noteId;
+  }
+  async function getNoteInfo(noteId) {
+    console.log(`[AnkiConnect] getNoteInfo: noteId=${noteId}`);
+    const noteInfoList = await invokeAnkiConnect("notesInfo", { notes: [noteId] });
+    console.log(`[AnkiConnect] getNoteInfo 返回数据:`, noteInfoList);
+    const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
+    console.log(`[AnkiConnect] getNoteInfo 解析后:`, noteInfo);
+    return noteInfo || null;
+  }
+  async function ensureFieldOnNote(noteId, fieldName) {
+    console.log(`[AnkiConnect] 验证字段: noteId=${noteId}, fieldName="${fieldName}"`);
+    const noteInfoList = await invokeAnkiConnect("notesInfo", { notes: [noteId] });
+    const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
+    if (!noteInfo) {
+      console.error(`[AnkiConnect] 未找到笔记: ${noteId}`);
+      throw new Error(`Note ${noteId} not found`);
+    }
+    console.log(`[AnkiConnect] 笔记类型: ${noteInfo.modelName}`);
+    console.log(`[AnkiConnect] 可用字段: ${Object.keys(noteInfo.fields || {}).join(", ")}`);
+    if (!noteInfo.fields || !(fieldName in noteInfo.fields)) {
+      console.error(`[AnkiConnect] 字段 "${fieldName}" 不存在于笔记上`);
+      throw new Error(`Field "${fieldName}" does not exist on the note`);
+    }
+    console.log(`[AnkiConnect] ✓ 字段验证通过`);
+  }
+  async function attachMedia(noteId, mediaType, media, fieldName) {
+    console.log(`[AnkiConnect] attachMedia 开始: noteId=${noteId}, mediaType=${mediaType}, url=${media.url}, filename=${media.filename}, field=${fieldName}`);
+    try {
+      console.log("[AnkiConnect] 步骤1: 下载媒体文件到 Anki...");
+      const storedFilename = await invokeAnkiConnect("storeMediaFile", {
+        filename: media.filename,
+        url: media.url
+      });
+      console.log(`[AnkiConnect] 媒体文件已存储: ${storedFilename}`);
+      let fieldValue = "";
+      if (mediaType === "picture") {
+        fieldValue = `<img src="${storedFilename}">`;
+        console.log(`[AnkiConnect] 构建图片字段值: ${fieldValue}`);
+      } else {
+        fieldValue = `[sound:${storedFilename}]`;
+        console.log(`[AnkiConnect] 构建音频字段值: ${fieldValue}`);
+      }
+      console.log("[AnkiConnect] 步骤2: 更新笔记字段...");
+      await invokeAnkiConnect("updateNoteFields", {
+        note: {
+          id: noteId,
+          fields: {
+            [fieldName]: fieldValue
+          }
+        }
+      });
+      console.log("[AnkiConnect] 字段更新请求已发送");
+      console.log("[AnkiConnect] 步骤3: 验证字段是否真的更新了...");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const updatedNoteInfo = await getNoteInfo(noteId);
+      console.log("[AnkiConnect] 更新后的笔记信息:", updatedNoteInfo);
+      const actualFieldValue = updatedNoteInfo?.fields?.[fieldName]?.value || "";
+      console.log(`[AnkiConnect] 字段 "${fieldName}" 的实际值:`, actualFieldValue);
+      if (!actualFieldValue || actualFieldValue.trim().length === 0) {
+        console.error(`[AnkiConnect] ✗ 验证失败: 字段 "${fieldName}" 为空！`);
+        throw new Error(`Field "${fieldName}" is still empty after update`);
+      }
+      console.log("[AnkiConnect] ✓ 验证通过: 字段已有内容");
+      console.log("[AnkiConnect] ✓ 媒体附加成功");
+    } catch (error) {
+      console.error("[AnkiConnect] ✗ attachMedia 失败:", error);
+      throw error;
+    }
+  }
+  async function getSelectedNoteIds() {
+    console.log("[AnkiConnect] 获取选中笔记ID...");
+    const ids = await invokeAnkiConnect("guiSelectedNotes");
+    const result = Array.isArray(ids) ? ids : [];
+    console.log(`[AnkiConnect] 选中笔记数量: ${result.length}`, result);
+    return result;
+  }
+  async function openNoteEditor(noteId) {
+    await invokeAnkiConnect("guiEditNote", { note: noteId });
   }
   var $$_import_CONFIG = reactive_import(() => CONFIG);
   var root_1 = from_html(`<div class="alert error svelte-ny9p3g"> </div>`);
@@ -4235,6 +4235,57 @@ active_effect
     updateBarUI(getState());
     registerKeyboardShortcuts();
   }
+  function getExampleGroups() {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) return [];
+    const children = Array.from(container.children);
+    const groups = [];
+    for (let i = 0; i + 4 < children.length; i += 5) {
+      groups.push({
+        exampleDesktop: children[i],
+        buttonSpanDesktop: children[i + 1],
+        exampleMobile: children[i + 2],
+        buttonSpanMobile: children[i + 3],
+        contextMenu: children[i + 4],
+        index: Math.floor(i / 5)
+      });
+    }
+    return groups;
+  }
+  function getExampleItems() {
+    const groups = getExampleGroups();
+    return groups.map((g) => g.exampleDesktop);
+  }
+  function getExampleIndexFromMenu(menuEl) {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) return 0;
+    const children = Array.from(container.children);
+    const spanIndex = children.findIndex((child2) => child2.contains(menuEl));
+    if (spanIndex === -1) return 0;
+    return Math.floor(spanIndex / 5);
+  }
+  function validatePageStructure() {
+    const container = document.querySelector(".ui.divided.items");
+    if (!container) {
+      return { valid: false, reason: "No .ui.divided.items container found" };
+    }
+    const children = Array.from(container.children);
+    if (children.length === 0) {
+      return { valid: false, reason: "Container is empty" };
+    }
+    if (children.length % 5 !== 0) {
+      console.warn(`ImmersionKit → Anki: Unexpected children count: ${children.length} (expected multiple of 5)`);
+    }
+    if (children.length >= 5) {
+      const firstExample = children[0];
+      const firstButtonSpan = children[1];
+      const hasExpectedPattern = firstExample?.classList.contains("item") && firstButtonSpan?.tagName === "SPAN" && firstButtonSpan?.querySelector(".ui.secondary.menu");
+      if (!hasExpectedPattern) {
+        return { valid: false, reason: "Structure pattern mismatch" };
+      }
+    }
+    return { valid: true };
+  }
   const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1e3;
   let lastAddedNoteId = null;
   let lastAddedAt = 0;
@@ -4274,7 +4325,7 @@ active_effect
   function ensureOpenEditorControl(triggerEl, noteId) {
     if (!noteId || !Number.isFinite(noteId)) return;
     const idx = triggerEl.dataset.ankiIndex || "";
-    let container = triggerEl.closest(".ui.secondary.menu");
+    const container = triggerEl.closest(".ui.secondary.menu");
     if (container) {
       let audioAnchor = null;
       if (triggerEl.dataset.anki === "audio") {
@@ -4313,35 +4364,6 @@ active_effect
       }
     }
   }
-  function getExampleGroups() {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) return [];
-    const children = Array.from(container.children);
-    const groups = [];
-    for (let i = 0; i + 4 < children.length; i += 5) {
-      groups.push({
-        exampleDesktop: children[i],
-        buttonSpanDesktop: children[i + 1],
-        exampleMobile: children[i + 2],
-        buttonSpanMobile: children[i + 3],
-        contextMenu: children[i + 4],
-        index: Math.floor(i / 5)
-      });
-    }
-    return groups;
-  }
-  function getExampleItems() {
-    const groups = getExampleGroups();
-    return groups.map((g) => g.exampleDesktop);
-  }
-  function getExampleIndexFromMenu(menuEl) {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) return 0;
-    const children = Array.from(container.children);
-    const spanIndex = children.findIndex((child2) => child2.contains(menuEl));
-    if (spanIndex === -1) return 0;
-    return Math.floor(spanIndex / 5);
-  }
   function resolveAbsoluteUrl(srcAttr) {
     try {
       return new URL(srcAttr, window.location.origin).href;
@@ -4357,6 +4379,9 @@ active_effect
       const p = (u || "").split("/").pop() || "";
       return decodeURIComponent(p.split("?")[0]) || fallback;
     }
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
   function findImageInfoAtIndex(index) {
     const items = getExampleItems();
@@ -4631,43 +4656,25 @@ active_effect
       );
       menuEl.appendChild(audioItem);
     }
-    if (!menuEl.querySelector('a.item[data-anki="yahoo"]')) {
-      const url = new URL(window.location.href);
-      const keyword = url.searchParams.get("keyword");
-      if (keyword) {
-        const yahooItem = document.createElement("a");
-        yahooItem.className = "item";
-        yahooItem.href = `https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`;
-        yahooItem.target = "_blank";
-        yahooItem.rel = "noopener noreferrer";
-        yahooItem.dataset.anki = "yahoo";
-        yahooItem.dataset.ankiIndex = String(exampleIndex);
-        yahooItem.textContent = "Yahoo同词";
-        menuEl.appendChild(yahooItem);
-      }
-    }
   }
-  function validatePageStructure() {
-    const container = document.querySelector(".ui.divided.items");
-    if (!container) {
-      return { valid: false, reason: "No .ui.divided.items container found" };
-    }
-    const children = Array.from(container.children);
-    if (children.length === 0) {
-      return { valid: false, reason: "Container is empty" };
-    }
-    if (children.length % 5 !== 0) {
-      console.warn(`ImmersionKit → Anki: Unexpected children count: ${children.length} (expected multiple of 5)`);
-    }
-    if (children.length >= 5) {
-      const firstExample = children[0];
-      const firstButtonSpan = children[1];
-      const hasExpectedPattern = firstExample?.classList.contains("item") && firstButtonSpan?.tagName === "SPAN" && firstButtonSpan?.querySelector(".ui.secondary.menu");
-      if (!hasExpectedPattern) {
-        return { valid: false, reason: "Structure pattern mismatch" };
-      }
-    }
-    return { valid: true };
+  function injectYahooSearchButton() {
+    if (document.querySelector('[data-anki="yahoo-search"]')) return;
+    const url = new URL(window.location.href);
+    const keyword = url.searchParams.get("keyword");
+    if (!keyword) return;
+    const searchContainer = document.querySelector(".ui.fluid.right.action.left.icon.right.labeled.input.icon");
+    if (!searchContainer) return;
+    const yahooBtn = document.createElement("a");
+    yahooBtn.className = "ui basic button";
+    yahooBtn.href = `https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`;
+    yahooBtn.target = "_blank";
+    yahooBtn.rel = "noopener noreferrer";
+    yahooBtn.dataset.anki = "yahoo-search";
+    yahooBtn.textContent = "Yahoo同词";
+    yahooBtn.style.marginLeft = "8px";
+    yahooBtn.style.whiteSpace = "nowrap";
+    searchContainer.parentNode?.insertBefore(yahooBtn, searchContainer.nextSibling);
+    console.log("[Anki] Yahoo同词按钮已添加到搜索框旁边");
   }
   function insertAnkiButtons() {
     let attempts = 0;
@@ -4704,7 +4711,6 @@ active_effect
       }
     }, 500);
   }
-  let stylesInjected = false;
   let menuObserver = null;
   function observeNewMenus() {
     if (menuObserver) return;
@@ -4734,6 +4740,7 @@ active_effect
     });
     menuObserver.observe(document.body, { childList: true, subtree: true });
   }
+  let stylesInjected = false;
   function init() {
     if (!stylesInjected) {
       injectStyles();
@@ -4743,6 +4750,7 @@ active_effect
     setTimeout(() => {
       insertAnkiButtons();
       injectPlayAllBar();
+      injectYahooSearchButton();
     }, 1e3);
   }
   function isDictionaryPage(u) {
@@ -4773,9 +4781,6 @@ active_effect
     };
     if (document.readyState === "complete") onReady();
     else window.addEventListener("load", onReady);
-  }
-  function escapeHtml(s) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
   function registerMenu() {
     _GM_registerMenuCommand("设置（ImmersionKit → Anki）", () => {

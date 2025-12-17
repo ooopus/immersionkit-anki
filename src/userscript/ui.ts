@@ -491,6 +491,23 @@ function injectMenuButtons(menuEl: Element, exampleIndex: number): void {
     );
     menuEl.appendChild(audioItem);
   }
+
+  // Add Yahoo search button
+  if (!menuEl.querySelector('a.item[data-anki="yahoo"]')) {
+    const url = new URL(window.location.href);
+    const keyword = url.searchParams.get('keyword');
+    if (keyword) {
+      const yahooItem = document.createElement('a');
+      yahooItem.className = 'item';
+      yahooItem.href = `https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`;
+      yahooItem.target = '_blank';
+      yahooItem.rel = 'noopener noreferrer';
+      yahooItem.dataset.anki = 'yahoo';
+      yahooItem.dataset.ankiIndex = String(exampleIndex);
+      yahooItem.textContent = 'Yahoo同词';
+      menuEl.appendChild(yahooItem);
+    }
+  }
 }
 
 /**

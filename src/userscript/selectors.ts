@@ -41,11 +41,13 @@ export const SELECTORS = {
   
   // PlayAll highlight
   PLAYALL_HIGHLIGHT: '.anki-playall-highlight',
+  PLAYALL_BOOKMARKED: '.anki-playall-bookmarked',
 } as const;
 
 /** CSS classes used by this userscript */
 export const CLASSES = {
   HIGHLIGHT: 'anki-playall-highlight',
+  BOOKMARKED: 'anki-playall-bookmarked',
   FEEDBACK_PENDING: 'anki-feedback-pending',
   FEEDBACK_SUCCESS: 'anki-feedback-success',
   FEEDBACK_ERROR: 'anki-feedback-error',

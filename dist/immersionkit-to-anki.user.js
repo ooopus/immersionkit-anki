@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.6
+// @version      1.1.7
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -293,6 +293,39 @@
     50% {\r
         opacity: 1;\r
     }\r
+}\r
+\r
+/* ============================================================================\r
+   Bookmark Styles\r
+   ============================================================================ */\r
+\r
+.anki-playall-btn[data-action="bookmark"].active {\r
+    background: #ff9800;\r
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.4);\r
+}\r
+\r
+.anki-playall-bookmark-count {\r
+    color: rgba(255, 255, 255, 0.9);\r
+    font-size: 12px;\r
+    padding: 0 8px;\r
+}\r
+\r
+.anki-playall-bookmark-count .count {\r
+    font-weight: 600;\r
+    color: #ff9800;\r
+}\r
+\r
+.anki-playall-bookmarked {\r
+    position: relative;\r
+}\r
+\r
+.anki-playall-bookmarked::after {\r
+    content: '🔖';\r
+    position: absolute;\r
+    top: -8px;\r
+    right: -8px;\r
+    font-size: 18px;\r
+    z-index: 10;\r
 }`;
   function setButtonState(el, state2, text) {
     if (!el) return;
@@ -3844,7 +3877,8 @@ NEXT_PAGE: [
 PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   };
   const CLASSES = {
-    HIGHLIGHT: "anki-playall-highlight"
+    HIGHLIGHT: "anki-playall-highlight",
+    BOOKMARKED: "anki-playall-bookmarked"
   };
   function getExampleGroups() {
     const container = document.querySelector(SELECTORS.EXAMPLES_CONTAINER);
@@ -3901,7 +3935,8 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     status: "idle",
     currentIndex: 0,
     totalOnPage: 0,
-    loopEnabled: false
+    loopEnabled: false,
+    bookmarkedIndices: new Set()
   };
   let currentAudio = null;
   let stateChangeListeners = [];
@@ -3930,6 +3965,16 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     if (!group) return;
     group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
     group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function updateBookmarkVisuals() {
+    const groups = getExampleGroups();
+    groups.forEach((group, idx) => {
+      if (state.bookmarkedIndices.has(idx)) {
+        group.exampleDesktop.classList.add(CLASSES.BOOKMARKED);
+      } else {
+        group.exampleDesktop.classList.remove(CLASSES.BOOKMARKED);
+      }
+    });
   }
   function clearHighlight() {
     document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
@@ -4106,6 +4151,74 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     state.loopEnabled = !state.loopEnabled;
     notifyStateChange();
   }
+  function toggleBookmark() {
+    const idx = state.currentIndex;
+    if (state.bookmarkedIndices.has(idx)) {
+      state.bookmarkedIndices.delete(idx);
+    } else {
+      state.bookmarkedIndices.add(idx);
+    }
+    updateBookmarkVisuals();
+    notifyStateChange();
+  }
+  function skipToNextBookmark() {
+    if (state.status === "idle" || state.status === "stopped") return;
+    if (state.bookmarkedIndices.size === 0) return;
+    const sortedBookmarks = Array.from(state.bookmarkedIndices).sort((a, b) => a - b);
+    const nextBookmark = sortedBookmarks.find((idx) => idx > state.currentIndex);
+    if (nextBookmark !== void 0) {
+      wasSkipped = true;
+      state.currentIndex = nextBookmark;
+      notifyStateChange();
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      if (skipResolve) {
+        skipResolve();
+      }
+    } else if (state.loopEnabled && sortedBookmarks.length > 0) {
+      wasSkipped = true;
+      state.currentIndex = sortedBookmarks[0];
+      notifyStateChange();
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      if (skipResolve) {
+        skipResolve();
+      }
+    }
+  }
+  function skipToPrevBookmark() {
+    if (state.status === "idle" || state.status === "stopped") return;
+    if (state.bookmarkedIndices.size === 0) return;
+    const sortedBookmarks = Array.from(state.bookmarkedIndices).sort((a, b) => b - a);
+    const prevBookmark = sortedBookmarks.find((idx) => idx < state.currentIndex);
+    if (prevBookmark !== void 0) {
+      wasSkipped = true;
+      state.currentIndex = prevBookmark;
+      notifyStateChange();
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      if (skipResolve) {
+        skipResolve();
+      }
+    } else if (state.loopEnabled && sortedBookmarks.length > 0) {
+      wasSkipped = true;
+      state.currentIndex = sortedBookmarks[0];
+      notifyStateChange();
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      if (skipResolve) {
+        skipResolve();
+      }
+    }
+  }
   function skipToNext() {
     if (state.status === "idle" || state.status === "stopped") return;
     wasSkipped = true;
@@ -4160,18 +4273,32 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
       case "arrowright":
         if (state.status === "playing" || state.status === "paused") {
           e.preventDefault();
-          skipToNext();
+          if (e.shiftKey) {
+            skipToNextBookmark();
+          } else {
+            skipToNext();
+          }
         }
         break;
       case "arrowleft":
         if (state.status === "playing" || state.status === "paused") {
           e.preventDefault();
-          skipToPrevious();
+          if (e.shiftKey) {
+            skipToPrevBookmark();
+          } else {
+            skipToPrevious();
+          }
         }
         break;
       case "l":
         e.preventDefault();
         toggleLoop();
+        break;
+      case "b":
+        if (state.status === "playing" || state.status === "paused") {
+          e.preventDefault();
+          toggleBookmark();
+        }
         break;
     }
   }
@@ -4207,6 +4334,18 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     <div class="anki-playall-progress" style="display: none;">
       <span class="current">0</span> / <span class="total">0</span>
     </div>
+    <button class="anki-playall-btn" data-action="bookmark" title="标记当前 (B)" style="display: none;">
+      🔖 标记
+    </button>
+    <button class="anki-playall-btn" data-action="prevBookmark" title="上一标记 (Shift+←)" style="display: none;">
+      ⏮🔖
+    </button>
+    <button class="anki-playall-btn" data-action="nextBookmark" title="下一标记 (Shift+→)" style="display: none;">
+      🔖⏭
+    </button>
+    <div class="anki-playall-bookmark-count" style="display: none;">
+      <span class="count">0</span> 个标记
+    </div>
     <button class="anki-playall-btn" data-action="loop" title="循环模式 (L)">
       🔁 循环
     </button>
@@ -4214,6 +4353,8 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
       <kbd>Space</kbd> 播放/暂停
       <kbd>Esc</kbd> 停止
       <kbd>← →</kbd> 上/下一个
+      <kbd>B</kbd> 标记
+      <kbd>Shift+← →</kbd> 标记跳转
       <kbd>L</kbd> 循环
     </div>
   `;
@@ -4243,6 +4384,15 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
           case "loop":
             toggleLoop();
             break;
+          case "bookmark":
+            toggleBookmark();
+            break;
+          case "prevBookmark":
+            skipToPrevBookmark();
+            break;
+          case "nextBookmark":
+            skipToNextBookmark();
+            break;
         }
       });
     });
@@ -4258,6 +4408,10 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     const nextBtn = barElement.querySelector('[data-action="next"]');
     const progress = barElement.querySelector(".anki-playall-progress");
     const loopBtn = barElement.querySelector('[data-action="loop"]');
+    const bookmarkBtn = barElement.querySelector('[data-action="bookmark"]');
+    const prevBookmarkBtn = barElement.querySelector('[data-action="prevBookmark"]');
+    const nextBookmarkBtn = barElement.querySelector('[data-action="nextBookmark"]');
+    const bookmarkCount = barElement.querySelector(".anki-playall-bookmark-count");
     playBtn.style.display = "none";
     pauseBtn.style.display = "none";
     resumeBtn.style.display = "none";
@@ -4265,6 +4419,10 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     prevBtn.style.display = "none";
     nextBtn.style.display = "none";
     progress.style.display = "none";
+    bookmarkBtn.style.display = "none";
+    prevBookmarkBtn.style.display = "none";
+    nextBookmarkBtn.style.display = "none";
+    bookmarkCount.style.display = "none";
     switch (state2.status) {
       case "idle":
       case "stopped":
@@ -4276,6 +4434,10 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
         prevBtn.style.display = "";
         nextBtn.style.display = "";
         progress.style.display = "";
+        bookmarkBtn.style.display = "";
+        prevBookmarkBtn.style.display = "";
+        nextBookmarkBtn.style.display = "";
+        bookmarkCount.style.display = "";
         break;
       case "paused":
         resumeBtn.style.display = "";
@@ -4283,6 +4445,10 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
         prevBtn.style.display = "";
         nextBtn.style.display = "";
         progress.style.display = "";
+        bookmarkBtn.style.display = "";
+        prevBookmarkBtn.style.display = "";
+        nextBookmarkBtn.style.display = "";
+        bookmarkCount.style.display = "";
         break;
     }
     const currentSpan = progress.querySelector(".current");
@@ -4294,6 +4460,13 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     } else {
       loopBtn.classList.remove("active");
     }
+    if (state2.bookmarkedIndices.has(state2.currentIndex)) {
+      bookmarkBtn.classList.add("active");
+    } else {
+      bookmarkBtn.classList.remove("active");
+    }
+    const countSpan = bookmarkCount.querySelector(".count");
+    if (countSpan) countSpan.textContent = String(state2.bookmarkedIndices.size);
   }
   function injectPlayAllBar() {
     if (document.getElementById("anki-playall-bar")) return;

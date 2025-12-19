@@ -264,3 +264,36 @@
         opacity: 1;
     }
 }
+
+/* ============================================================================
+   Bookmark Styles
+   ============================================================================ */
+
+.anki-playall-btn[data-action="bookmark"].active {
+    background: #ff9800;
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.4);
+}
+
+.anki-playall-bookmark-count {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12px;
+    padding: 0 8px;
+}
+
+.anki-playall-bookmark-count .count {
+    font-weight: 600;
+    color: #ff9800;
+}
+
+.anki-playall-bookmarked {
+    position: relative;
+}
+
+.anki-playall-bookmarked::after {
+    content: '🔖';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 18px;
+    z-index: 10;
+}

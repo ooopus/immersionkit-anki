@@ -73,6 +73,7 @@ export interface PlayAllState {
   currentIndex: number;
   totalOnPage: number;
   loopEnabled: boolean;
+  bookmarkedIndices: Set<number>;
 }
 
 // ============================================================================

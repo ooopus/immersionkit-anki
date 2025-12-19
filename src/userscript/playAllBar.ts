@@ -14,6 +14,9 @@ import {
   skipToPrevious,
   skipToNext,
   registerKeyboardShortcuts,
+  toggleBookmark,
+  skipToNextBookmark,
+  skipToPrevBookmark,
   type PlayAllState,
 } from './playAllAudio';
 
@@ -47,6 +50,18 @@ function createControlBar(): HTMLElement {
     <div class="anki-playall-progress" style="display: none;">
       <span class="current">0</span> / <span class="total">0</span>
     </div>
+    <button class="anki-playall-btn" data-action="bookmark" title="标记当前 (B)" style="display: none;">
+      🔖 标记
+    </button>
+    <button class="anki-playall-btn" data-action="prevBookmark" title="上一标记 (Shift+←)" style="display: none;">
+      ⏮🔖
+    </button>
+    <button class="anki-playall-btn" data-action="nextBookmark" title="下一标记 (Shift+→)" style="display: none;">
+      🔖⏭
+    </button>
+    <div class="anki-playall-bookmark-count" style="display: none;">
+      <span class="count">0</span> 个标记
+    </div>
     <button class="anki-playall-btn" data-action="loop" title="循环模式 (L)">
       🔁 循环
     </button>
@@ -54,6 +69,8 @@ function createControlBar(): HTMLElement {
       <kbd>Space</kbd> 播放/暂停
       <kbd>Esc</kbd> 停止
       <kbd>← →</kbd> 上/下一个
+      <kbd>B</kbd> 标记
+      <kbd>Shift+← →</kbd> 标记跳转
       <kbd>L</kbd> 循环
     </div>
   `;
@@ -85,6 +102,15 @@ function createControlBar(): HTMLElement {
         case 'loop':
           toggleLoop();
           break;
+        case 'bookmark':
+          toggleBookmark();
+          break;
+        case 'prevBookmark':
+          skipToPrevBookmark();
+          break;
+        case 'nextBookmark':
+          skipToNextBookmark();
+          break;
       }
     });
   });
@@ -103,6 +129,10 @@ function updateBarUI(state: PlayAllState) {
   const nextBtn = barElement.querySelector('[data-action="next"]') as HTMLElement;
   const progress = barElement.querySelector('.anki-playall-progress') as HTMLElement;
   const loopBtn = barElement.querySelector('[data-action="loop"]') as HTMLElement;
+  const bookmarkBtn = barElement.querySelector('[data-action="bookmark"]') as HTMLElement;
+  const prevBookmarkBtn = barElement.querySelector('[data-action="prevBookmark"]') as HTMLElement;
+  const nextBookmarkBtn = barElement.querySelector('[data-action="nextBookmark"]') as HTMLElement;
+  const bookmarkCount = barElement.querySelector('.anki-playall-bookmark-count') as HTMLElement;
 
   // Hide all first
   playBtn.style.display = 'none';
@@ -112,6 +142,10 @@ function updateBarUI(state: PlayAllState) {
   prevBtn.style.display = 'none';
   nextBtn.style.display = 'none';
   progress.style.display = 'none';
+  bookmarkBtn.style.display = 'none';
+  prevBookmarkBtn.style.display = 'none';
+  nextBookmarkBtn.style.display = 'none';
+  bookmarkCount.style.display = 'none';
 
   switch (state.status) {
     case 'idle':
@@ -124,6 +158,10 @@ function updateBarUI(state: PlayAllState) {
       prevBtn.style.display = '';
       nextBtn.style.display = '';
       progress.style.display = '';
+      bookmarkBtn.style.display = '';
+      prevBookmarkBtn.style.display = '';
+      nextBookmarkBtn.style.display = '';
+      bookmarkCount.style.display = '';
       break;
     case 'paused':
       resumeBtn.style.display = '';
@@ -131,6 +169,10 @@ function updateBarUI(state: PlayAllState) {
       prevBtn.style.display = '';
       nextBtn.style.display = '';
       progress.style.display = '';
+      bookmarkBtn.style.display = '';
+      prevBookmarkBtn.style.display = '';
+      nextBookmarkBtn.style.display = '';
+      bookmarkCount.style.display = '';
       break;
   }
 
@@ -146,6 +188,15 @@ function updateBarUI(state: PlayAllState) {
   } else {
     loopBtn.classList.remove('active');
   }
+
+  // Update bookmark button and count
+  if (state.bookmarkedIndices.has(state.currentIndex)) {
+    bookmarkBtn.classList.add('active');
+  } else {
+    bookmarkBtn.classList.remove('active');
+  }
+  const countSpan = bookmarkCount.querySelector('.count');
+  if (countSpan) countSpan.textContent = String(state.bookmarkedIndices.size);
 }
 
 export function injectPlayAllBar() {

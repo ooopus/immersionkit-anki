@@ -16,6 +16,7 @@ const state: PlayAllState = {
   currentIndex: 0,
   totalOnPage: 0,
   loopEnabled: false,
+  bookmarkedIndices: new Set<number>(),
 };
 
 let currentAudio: HTMLAudioElement | null = null;
@@ -62,6 +63,17 @@ function highlightExample(index: number) {
 
   // Scroll into view
   group.exampleDesktop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function updateBookmarkVisuals() {
+  const groups = getExampleGroups();
+  groups.forEach((group, idx) => {
+    if (state.bookmarkedIndices.has(idx)) {
+      group.exampleDesktop.classList.add(CLASSES.BOOKMARKED);
+    } else {
+      group.exampleDesktop.classList.remove(CLASSES.BOOKMARKED);
+    }
+  });
 }
 
 function clearHighlight() {
@@ -308,6 +320,105 @@ export function toggleLoop() {
   notifyStateChange();
 }
 
+// ============================================================================
+// Bookmark Controls
+// ============================================================================
+
+export function toggleBookmark() {
+  const idx = state.currentIndex;
+  if (state.bookmarkedIndices.has(idx)) {
+    state.bookmarkedIndices.delete(idx);
+  } else {
+    state.bookmarkedIndices.add(idx);
+  }
+  updateBookmarkVisuals();
+  notifyStateChange();
+}
+
+export function isCurrentBookmarked(): boolean {
+  return state.bookmarkedIndices.has(state.currentIndex);
+}
+
+export function getBookmarkCount(): number {
+  return state.bookmarkedIndices.size;
+}
+
+export function clearAllBookmarks() {
+  state.bookmarkedIndices.clear();
+  updateBookmarkVisuals();
+  notifyStateChange();
+}
+
+export function skipToNextBookmark() {
+  if (state.status === 'idle' || state.status === 'stopped') return;
+  if (state.bookmarkedIndices.size === 0) return;
+
+  const sortedBookmarks = Array.from(state.bookmarkedIndices).sort((a, b) => a - b);
+  const nextBookmark = sortedBookmarks.find((idx) => idx > state.currentIndex);
+
+  if (nextBookmark !== undefined) {
+    wasSkipped = true;
+    state.currentIndex = nextBookmark;
+    notifyStateChange();
+
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (skipResolve) {
+      skipResolve();
+    }
+  } else if (state.loopEnabled && sortedBookmarks.length > 0) {
+    // Loop to first bookmark
+    wasSkipped = true;
+    state.currentIndex = sortedBookmarks[0];
+    notifyStateChange();
+
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (skipResolve) {
+      skipResolve();
+    }
+  }
+}
+
+export function skipToPrevBookmark() {
+  if (state.status === 'idle' || state.status === 'stopped') return;
+  if (state.bookmarkedIndices.size === 0) return;
+
+  const sortedBookmarks = Array.from(state.bookmarkedIndices).sort((a, b) => b - a);
+  const prevBookmark = sortedBookmarks.find((idx) => idx < state.currentIndex);
+
+  if (prevBookmark !== undefined) {
+    wasSkipped = true;
+    state.currentIndex = prevBookmark;
+    notifyStateChange();
+
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (skipResolve) {
+      skipResolve();
+    }
+  } else if (state.loopEnabled && sortedBookmarks.length > 0) {
+    // Loop to last bookmark
+    wasSkipped = true;
+    state.currentIndex = sortedBookmarks[0]; // sortedBookmarks is reverse sorted, so [0] is highest
+    notifyStateChange();
+
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
+    if (skipResolve) {
+      skipResolve();
+    }
+  }
+}
+
 export function skipToNext() {
   if (state.status === 'idle' || state.status === 'stopped') return;
 
@@ -385,23 +496,38 @@ function handleKeydown(e: KeyboardEvent) {
       }
       break;
 
-    case 'arrowright': // Right arrow - next
+    case 'arrowright': // Right arrow - next (Shift for bookmark)
       if (state.status === 'playing' || state.status === 'paused') {
         e.preventDefault();
-        skipToNext();
+        if (e.shiftKey) {
+          skipToNextBookmark();
+        } else {
+          skipToNext();
+        }
       }
       break;
 
-    case 'arrowleft': // Left arrow - previous
+    case 'arrowleft': // Left arrow - previous (Shift for bookmark)
       if (state.status === 'playing' || state.status === 'paused') {
         e.preventDefault();
-        skipToPrevious();
+        if (e.shiftKey) {
+          skipToPrevBookmark();
+        } else {
+          skipToPrevious();
+        }
       }
       break;
 
     case 'l': // L - toggle loop
       e.preventDefault();
       toggleLoop();
+      break;
+
+    case 'b': // B - toggle bookmark
+      if (state.status === 'playing' || state.status === 'paused') {
+        e.preventDefault();
+        toggleBookmark();
+      }
       break;
   }
 }

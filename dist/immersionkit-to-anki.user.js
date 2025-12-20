@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.12
+// @version      1.1.13
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -4183,7 +4183,6 @@ NEXT_PAGE: [
       "a.icon.item:has(i.right.chevron.icon)",
       ".ui.pagination.menu a.icon.item:last-child:not(.disabled)"
     ],
-    ACTIVE_SEGMENT: "div.ui.segment.active.tab, div.ui.tab.segment.active, div.ui.segment.active",
 PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   };
   const CLASSES = {
@@ -4298,12 +4297,13 @@ notifyListeners() {
     const groups = getExampleGroups();
     const group = groups[index];
     if (!group) return;
-    document.querySelectorAll(SELECTORS.ACTIVE_SEGMENT).forEach((segment) => {
-      const item = segment.closest(".item");
-      if (item && item !== group.exampleDesktop) {
-        segment.classList.remove("active");
-        const tabStyle = segment;
-        tabStyle.style.display = "none";
+    document.querySelectorAll(".ui.segment.active.tab").forEach((panel) => {
+      const parentItem = panel.closest(".item");
+      if (parentItem) {
+        const miningTab = parentItem.querySelector(".ui.secondary.menu a.active.item");
+        if (miningTab instanceof HTMLElement) {
+          miningTab.click();
+        }
       }
     });
     document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
@@ -4321,9 +4321,7 @@ notifyListeners() {
       }
     });
     group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
-    setTimeout(() => {
-      group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
+    group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   function updateBookmarkVisuals() {
     const groups = getExampleGroups();

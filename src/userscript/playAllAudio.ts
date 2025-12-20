@@ -57,16 +57,31 @@ export function getState(): PlayAllState {
 }
 
 function highlightExample(index: number) {
-  // Remove previous highlight
-  document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
-    el.classList.remove(CLASSES.HIGHLIGHT);
-  });
-
   const groups = getExampleGroups();
   const group = groups[index];
   if (!group) return;
 
-  // Add highlight to desktop example
+  // Move previous highlight to "leaving" state for fade-out animation
+  document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
+    el.classList.remove(CLASSES.HIGHLIGHT);
+    // Only add leaving class if it's a different element
+    if (el !== group.exampleDesktop) {
+      el.classList.add(CLASSES.LEAVING);
+      // Clean up leaving class after animation completes
+      setTimeout(() => {
+        el.classList.remove(CLASSES.LEAVING);
+      }, 800);
+    }
+  });
+
+  // Also clean up any existing leaving elements that might conflict
+  document.querySelectorAll(`.${CLASSES.LEAVING}`).forEach((el) => {
+    if (el === group.exampleDesktop) {
+      el.classList.remove(CLASSES.LEAVING);
+    }
+  });
+
+  // Add highlight to desktop example with enter animation
   group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
 
   // Scroll into view

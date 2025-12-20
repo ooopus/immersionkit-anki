@@ -232,21 +232,91 @@
    Example Highlight Animation
    ============================================================================ */
 
+/* 当前播放项 - 醒目的进入动画 */
 .anki-playall-highlight {
     position: relative;
-    animation: anki-playall-pulse 1.5s ease-in-out infinite;
+    animation: anki-playall-enter 0.4s ease-out, anki-playall-pulse 1.5s ease-in-out 0.4s infinite;
+    z-index: 5;
 }
 
 .anki-playall-highlight::before {
     content: '';
     position: absolute;
-    inset: -4px;
+    inset: -6px;
     border: 3px solid #2196f3;
-    border-radius: 8px;
+    border-radius: 10px;
     pointer-events: none;
-    animation: anki-playall-border-pulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);
+    animation: anki-playall-border-enter 0.4s ease-out, anki-playall-border-pulse 1.5s ease-in-out 0.4s infinite;
 }
 
+/* 上一个播放项 - 淡出效果，保持短暂可见 */
+.anki-playall-leaving {
+    position: relative;
+    animation: anki-playall-leave 0.8s ease-out forwards;
+}
+
+.anki-playall-leaving::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 2px solid #90caf9;
+    border-radius: 8px;
+    pointer-events: none;
+    animation: anki-playall-border-leave 0.8s ease-out forwards;
+}
+
+/* 进入动画 - 缩放+闪烁 */
+@keyframes anki-playall-enter {
+    0% {
+        transform: scale(0.98);
+        background-color: rgba(33, 150, 243, 0.3);
+    }
+    50% {
+        transform: scale(1.01);
+        background-color: rgba(33, 150, 243, 0.25);
+    }
+    100% {
+        transform: scale(1);
+        background-color: rgba(33, 150, 243, 0.08);
+    }
+}
+
+@keyframes anki-playall-border-enter {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.8), inset 0 0 15px rgba(33, 150, 243, 0.2);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* 离开动画 - 淡化 */
+@keyframes anki-playall-leave {
+    0% {
+        background-color: rgba(144, 202, 249, 0.15);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+@keyframes anki-playall-border-leave {
+    0% {
+        opacity: 0.6;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* 持续播放时的脉冲效果 */
 @keyframes anki-playall-pulse {
     0%, 100% {
         background-color: rgba(33, 150, 243, 0.05);
@@ -258,10 +328,12 @@
 
 @keyframes anki-playall-border-pulse {
     0%, 100% {
-        opacity: 0.6;
+        opacity: 0.7;
+        box-shadow: 0 0 15px rgba(33, 150, 243, 0.4), inset 0 0 8px rgba(33, 150, 243, 0.1);
     }
     50% {
         opacity: 1;
+        box-shadow: 0 0 25px rgba(33, 150, 243, 0.6), inset 0 0 12px rgba(33, 150, 243, 0.15);
     }
 }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.8
+// @version      1.1.9
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -262,21 +262,91 @@
    Example Highlight Animation\r
    ============================================================================ */\r
 \r
+/* 当前播放项 - 醒目的进入动画 */\r
 .anki-playall-highlight {\r
     position: relative;\r
-    animation: anki-playall-pulse 1.5s ease-in-out infinite;\r
+    animation: anki-playall-enter 0.4s ease-out, anki-playall-pulse 1.5s ease-in-out 0.4s infinite;\r
+    z-index: 5;\r
 }\r
 \r
 .anki-playall-highlight::before {\r
     content: '';\r
     position: absolute;\r
-    inset: -4px;\r
+    inset: -6px;\r
     border: 3px solid #2196f3;\r
-    border-radius: 8px;\r
+    border-radius: 10px;\r
     pointer-events: none;\r
-    animation: anki-playall-border-pulse 1.5s ease-in-out infinite;\r
+    box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);\r
+    animation: anki-playall-border-enter 0.4s ease-out, anki-playall-border-pulse 1.5s ease-in-out 0.4s infinite;\r
 }\r
 \r
+/* 上一个播放项 - 淡出效果，保持短暂可见 */\r
+.anki-playall-leaving {\r
+    position: relative;\r
+    animation: anki-playall-leave 0.8s ease-out forwards;\r
+}\r
+\r
+.anki-playall-leaving::before {\r
+    content: '';\r
+    position: absolute;\r
+    inset: -4px;\r
+    border: 2px solid #90caf9;\r
+    border-radius: 8px;\r
+    pointer-events: none;\r
+    animation: anki-playall-border-leave 0.8s ease-out forwards;\r
+}\r
+\r
+/* 进入动画 - 缩放+闪烁 */\r
+@keyframes anki-playall-enter {\r
+    0% {\r
+        transform: scale(0.98);\r
+        background-color: rgba(33, 150, 243, 0.3);\r
+    }\r
+    50% {\r
+        transform: scale(1.01);\r
+        background-color: rgba(33, 150, 243, 0.25);\r
+    }\r
+    100% {\r
+        transform: scale(1);\r
+        background-color: rgba(33, 150, 243, 0.08);\r
+    }\r
+}\r
+\r
+@keyframes anki-playall-border-enter {\r
+    0% {\r
+        opacity: 0;\r
+        transform: scale(0.95);\r
+    }\r
+    50% {\r
+        opacity: 1;\r
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.8), inset 0 0 15px rgba(33, 150, 243, 0.2);\r
+    }\r
+    100% {\r
+        opacity: 1;\r
+        transform: scale(1);\r
+    }\r
+}\r
+\r
+/* 离开动画 - 淡化 */\r
+@keyframes anki-playall-leave {\r
+    0% {\r
+        background-color: rgba(144, 202, 249, 0.15);\r
+    }\r
+    100% {\r
+        background-color: transparent;\r
+    }\r
+}\r
+\r
+@keyframes anki-playall-border-leave {\r
+    0% {\r
+        opacity: 0.6;\r
+    }\r
+    100% {\r
+        opacity: 0;\r
+    }\r
+}\r
+\r
+/* 持续播放时的脉冲效果 */\r
 @keyframes anki-playall-pulse {\r
     0%, 100% {\r
         background-color: rgba(33, 150, 243, 0.05);\r
@@ -288,10 +358,12 @@
 \r
 @keyframes anki-playall-border-pulse {\r
     0%, 100% {\r
-        opacity: 0.6;\r
+        opacity: 0.7;\r
+        box-shadow: 0 0 15px rgba(33, 150, 243, 0.4), inset 0 0 8px rgba(33, 150, 243, 0.1);\r
     }\r
     50% {\r
         opacity: 1;\r
+        box-shadow: 0 0 25px rgba(33, 150, 243, 0.6), inset 0 0 12px rgba(33, 150, 243, 0.15);\r
     }\r
 }\r
 \r
@@ -4115,6 +4187,7 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   };
   const CLASSES = {
     HIGHLIGHT: "anki-playall-highlight",
+    LEAVING: "anki-playall-leaving",
     BOOKMARKED: "anki-playall-bookmarked"
   };
   function getExampleGroups() {
@@ -4221,12 +4294,23 @@ notifyListeners() {
     };
   }
   function highlightExample(index) {
-    document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
-      el.classList.remove(CLASSES.HIGHLIGHT);
-    });
     const groups = getExampleGroups();
     const group = groups[index];
     if (!group) return;
+    document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
+      el.classList.remove(CLASSES.HIGHLIGHT);
+      if (el !== group.exampleDesktop) {
+        el.classList.add(CLASSES.LEAVING);
+        setTimeout(() => {
+          el.classList.remove(CLASSES.LEAVING);
+        }, 800);
+      }
+    });
+    document.querySelectorAll(`.${CLASSES.LEAVING}`).forEach((el) => {
+      if (el === group.exampleDesktop) {
+        el.classList.remove(CLASSES.LEAVING);
+      }
+    });
     group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
     group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
   }

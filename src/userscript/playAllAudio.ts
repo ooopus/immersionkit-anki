@@ -61,19 +61,6 @@ function highlightExample(index: number) {
   const group = groups[index];
   if (!group) return;
 
-  // Collapse all expanded Mining panels to reduce vertical space
-  // This allows both previous and current items to be visible during transition
-  document.querySelectorAll('.ui.segment.active.tab').forEach((panel) => {
-    // Click the active Mining tab to collapse it
-    const parentItem = panel.closest('.item');
-    if (parentItem) {
-      const miningTab = parentItem.querySelector('.ui.secondary.menu a.active.item');
-      if (miningTab instanceof HTMLElement) {
-        miningTab.click();
-      }
-    }
-  });
-
   // Move previous highlight to "leaving" state for fade-out animation
   document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
     el.classList.remove(CLASSES.HIGHLIGHT);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.13
+// @version      1.1.14
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -265,25 +265,38 @@
 /* 当前播放项 - 醒目的进入动画 */\r
 .anki-playall-highlight {\r
     position: relative;\r
-    animation: anki-playall-enter 0.4s ease-out, anki-playall-pulse 1.5s ease-in-out 0.4s infinite;\r
+    animation: anki-playall-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1), anki-playall-pulse 1.5s ease-in-out 0.5s infinite;\r
     z-index: 5;\r
+    scroll-margin-top: 120px;\r
 }\r
 \r
 .anki-playall-highlight::before {\r
     content: '';\r
     position: absolute;\r
-    inset: -6px;\r
-    border: 3px solid #2196f3;\r
-    border-radius: 10px;\r
+    inset: -8px;\r
+    border: 4px solid #2196f3;\r
+    border-radius: 12px;\r
     pointer-events: none;\r
-    box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);\r
-    animation: anki-playall-border-enter 0.4s ease-out, anki-playall-border-pulse 1.5s ease-in-out 0.4s infinite;\r
+    box-shadow: 0 0 30px rgba(33, 150, 243, 0.6), 0 0 60px rgba(33, 150, 243, 0.3), inset 0 0 15px rgba(33, 150, 243, 0.15);\r
+    animation: anki-playall-border-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1), anki-playall-border-pulse 1.5s ease-in-out 0.5s infinite;\r
 }\r
 \r
-/* 上一个播放项 - 淡出效果，保持短暂可见 */\r
+/* 进入时的闪光效果 */\r
+.anki-playall-highlight::after {\r
+    content: '';\r
+    position: absolute;\r
+    inset: -12px;\r
+    border-radius: 14px;\r
+    pointer-events: none;\r
+    background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.3) 50%, transparent 60%);\r
+    background-size: 200% 200%;\r
+    animation: anki-playall-shine 0.6s ease-out;\r
+}\r
+\r
+/* 上一个播放项 - 淡出效果 */\r
 .anki-playall-leaving {\r
     position: relative;\r
-    animation: anki-playall-leave 0.8s ease-out forwards;\r
+    animation: anki-playall-leave 0.6s ease-out forwards;\r
 }\r
 \r
 .anki-playall-leaving::before {\r
@@ -293,21 +306,30 @@
     border: 2px solid #90caf9;\r
     border-radius: 8px;\r
     pointer-events: none;\r
-    animation: anki-playall-border-leave 0.8s ease-out forwards;\r
+    animation: anki-playall-border-leave 0.6s ease-out forwards;\r
 }\r
 \r
-/* 进入动画 - 缩放+闪烁 */\r
+/* 进入动画 - 从略微上方滑入 + 缩放 + 强烈闪烁 */\r
 @keyframes anki-playall-enter {\r
     0% {\r
-        transform: scale(0.98);\r
-        background-color: rgba(33, 150, 243, 0.3);\r
+        transform: translateY(-8px) scale(0.96);\r
+        background-color: rgba(33, 150, 243, 0.5);\r
+        opacity: 0.7;\r
     }\r
-    50% {\r
-        transform: scale(1.01);\r
-        background-color: rgba(33, 150, 243, 0.25);\r
+\r
+    40% {\r
+        transform: translateY(2px) scale(1.02);\r
+        background-color: rgba(33, 150, 243, 0.35);\r
+        opacity: 1;\r
     }\r
+\r
+    70% {\r
+        transform: translateY(-1px) scale(1.005);\r
+        background-color: rgba(33, 150, 243, 0.2);\r
+    }\r
+\r
     100% {\r
-        transform: scale(1);\r
+        transform: translateY(0) scale(1);\r
         background-color: rgba(33, 150, 243, 0.08);\r
     }\r
 }\r
@@ -315,15 +337,33 @@
 @keyframes anki-playall-border-enter {\r
     0% {\r
         opacity: 0;\r
-        transform: scale(0.95);\r
+        transform: scale(0.92);\r
+        box-shadow: 0 0 50px rgba(33, 150, 243, 1), 0 0 100px rgba(33, 150, 243, 0.6);\r
     }\r
-    50% {\r
+\r
+    40% {\r
         opacity: 1;\r
-        box-shadow: 0 0 30px rgba(33, 150, 243, 0.8), inset 0 0 15px rgba(33, 150, 243, 0.2);\r
+        transform: scale(1.03);\r
+        box-shadow: 0 0 40px rgba(33, 150, 243, 0.9), 0 0 80px rgba(33, 150, 243, 0.5);\r
     }\r
+\r
     100% {\r
         opacity: 1;\r
         transform: scale(1);\r
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.6), 0 0 60px rgba(33, 150, 243, 0.3);\r
+    }\r
+}\r
+\r
+/* 闪光扫过效果 */\r
+@keyframes anki-playall-shine {\r
+    0% {\r
+        background-position: 200% 200%;\r
+        opacity: 1;\r
+    }\r
+\r
+    100% {\r
+        background-position: -200% -200%;\r
+        opacity: 0;\r
     }\r
 }\r
 \r
@@ -332,6 +372,7 @@
     0% {\r
         background-color: rgba(144, 202, 249, 0.15);\r
     }\r
+\r
     100% {\r
         background-color: transparent;\r
     }\r
@@ -341,6 +382,7 @@
     0% {\r
         opacity: 0.6;\r
     }\r
+\r
     100% {\r
         opacity: 0;\r
     }\r
@@ -348,22 +390,28 @@
 \r
 /* 持续播放时的脉冲效果 */\r
 @keyframes anki-playall-pulse {\r
-    0%, 100% {\r
+\r
+    0%,\r
+    100% {\r
         background-color: rgba(33, 150, 243, 0.05);\r
     }\r
+\r
     50% {\r
         background-color: rgba(33, 150, 243, 0.12);\r
     }\r
 }\r
 \r
 @keyframes anki-playall-border-pulse {\r
-    0%, 100% {\r
+\r
+    0%,\r
+    100% {\r
         opacity: 0.7;\r
-        box-shadow: 0 0 15px rgba(33, 150, 243, 0.4), inset 0 0 8px rgba(33, 150, 243, 0.1);\r
+        box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);\r
     }\r
+\r
     50% {\r
         opacity: 1;\r
-        box-shadow: 0 0 25px rgba(33, 150, 243, 0.6), inset 0 0 12px rgba(33, 150, 243, 0.15);\r
+        box-shadow: 0 0 35px rgba(33, 150, 243, 0.7), inset 0 0 15px rgba(33, 150, 243, 0.2);\r
     }\r
 }\r
 \r
@@ -4297,15 +4345,6 @@ notifyListeners() {
     const groups = getExampleGroups();
     const group = groups[index];
     if (!group) return;
-    document.querySelectorAll(".ui.segment.active.tab").forEach((panel) => {
-      const parentItem = panel.closest(".item");
-      if (parentItem) {
-        const miningTab = parentItem.querySelector(".ui.secondary.menu a.active.item");
-        if (miningTab instanceof HTMLElement) {
-          miningTab.click();
-        }
-      }
-    });
     document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
       el.classList.remove(CLASSES.HIGHLIGHT);
       if (el !== group.exampleDesktop) {

@@ -61,6 +61,11 @@ function highlightExample(index: number) {
   const group = groups[index];
   if (!group) return;
 
+  // Collapse any open active segments/tabs to avoid blocking the view
+  document.querySelectorAll(SELECTORS.ACTIVE_SEGMENT).forEach((el) => {
+    el.classList.remove('active');
+  });
+
   // Move previous highlight to "leaving" state for fade-out animation
   document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
     el.classList.remove(CLASSES.HIGHLIGHT);

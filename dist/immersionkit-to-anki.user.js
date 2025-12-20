@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.17
+// @version      1.1.18
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -240,101 +240,6 @@
 .anki-playall-progress .current {\r
     font-weight: 600;\r
     color: #fff;\r
-}\r
-\r
-/* 进度条切换闪烁效果 */\r
-.anki-playall-progress.flash {\r
-    animation: anki-progress-flash 0.5s ease-out;\r
-}\r
-\r
-.anki-playall-progress.flash .current {\r
-    animation: anki-number-pulse 0.5s ease-out;\r
-}\r
-\r
-@keyframes anki-progress-flash {\r
-    0% {\r
-        background: rgba(255, 152, 0, 0.8);\r
-        transform: scale(1.3);\r
-        border-radius: 8px;\r
-    }\r
-\r
-    100% {\r
-        background: transparent;\r
-        transform: scale(1);\r
-    }\r
-}\r
-\r
-@keyframes anki-number-pulse {\r
-    0% {\r
-        color: #ff9800;\r
-        text-shadow: 0 0 20px rgba(255, 152, 0, 1);\r
-    }\r
-\r
-    100% {\r
-        color: #fff;\r
-        text-shadow: none;\r
-    }\r
-}\r
-\r
-/* ============================================================================\r
-   Transition Indicator - 切换时屏幕中央的大数字指示器\r
-   ============================================================================ */\r
-\r
-.anki-playall-transition-indicator {\r
-    position: fixed;\r
-    top: 50%;\r
-    left: 50%;\r
-    transform: translate(-50%, -50%) scale(0.5);\r
-    z-index: 100000;\r
-    font-size: 72px;\r
-    font-weight: 700;\r
-    font-family: system-ui, -apple-system, sans-serif;\r
-    color: #fff;\r
-    background: rgba(0, 0, 0, 0.75);\r
-    padding: 20px 40px;\r
-    border-radius: 20px;\r
-    box-shadow: 0 10px 60px rgba(0, 0, 0, 0.5);\r
-    pointer-events: none;\r
-    animation: anki-indicator-pop 0.8s ease-out forwards;\r
-}\r
-\r
-.anki-playall-transition-indicator .number {\r
-    color: #4caf50;\r
-    text-shadow: 0 0 30px rgba(76, 175, 80, 0.8);\r
-}\r
-\r
-.anki-playall-transition-indicator .separator {\r
-    color: rgba(255, 255, 255, 0.5);\r
-    margin: 0 8px;\r
-}\r
-\r
-.anki-playall-transition-indicator .total {\r
-    color: rgba(255, 255, 255, 0.7);\r
-}\r
-\r
-@keyframes anki-indicator-pop {\r
-    0% {\r
-        opacity: 0;\r
-        transform: translate(-50%, -50%) scale(0.5);\r
-    }\r
-\r
-    20% {\r
-        opacity: 1;\r
-        transform: translate(-50%, -50%) scale(1.1);\r
-    }\r
-\r
-    40% {\r
-        transform: translate(-50%, -50%) scale(1);\r
-    }\r
-\r
-    80% {\r
-        opacity: 1;\r
-    }\r
-\r
-    100% {\r
-        opacity: 0;\r
-        transform: translate(-50%, -50%) scale(0.9);\r
-    }\r
 }\r
 \r
 .anki-playall-shortcuts {\r
@@ -4908,41 +4813,13 @@ notifyListeners() {
     const countSpan = bookmarkCount.querySelector(".count");
     if (countSpan) countSpan.textContent = String(state2.bookmarkedIndices.size);
   }
-  let previousIndex = -1;
-  function showTransitionIndicator(current, total) {
-    const existing = document.getElementById("anki-playall-indicator");
-    if (existing) existing.remove();
-    const indicator = document.createElement("div");
-    indicator.id = "anki-playall-indicator";
-    indicator.className = "anki-playall-transition-indicator";
-    indicator.innerHTML = `<span class="number">${current}</span><span class="separator">/</span><span class="total">${total}</span>`;
-    document.body.appendChild(indicator);
-    setTimeout(() => {
-      indicator.remove();
-    }, 800);
-  }
-  function updateBarUIWithIndicator(state2) {
-    if ((state2.status === "playing" || state2.status === "paused") && previousIndex !== -1 && previousIndex !== state2.currentIndex) {
-      showTransitionIndicator(state2.currentIndex + 1, state2.totalOnPage);
-      if (barElement) {
-        const progress = barElement.querySelector(".anki-playall-progress");
-        if (progress) {
-          progress.classList.remove("flash");
-          void progress.offsetWidth;
-          progress.classList.add("flash");
-        }
-      }
-    }
-    previousIndex = state2.currentIndex;
-    updateBarUI(state2);
-  }
   function injectPlayAllBar() {
     if (document.getElementById("anki-playall-bar")) return;
     const container = document.querySelector(".ui.divided.items");
     if (!container || !container.parentElement) return;
     barElement = createControlBar();
     container.parentElement.insertBefore(barElement, container);
-    onStateChange(updateBarUIWithIndicator);
+    onStateChange(updateBarUI);
     updateBarUI(getState());
     registerKeyboardShortcuts();
   }

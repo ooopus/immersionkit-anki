@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.7
+// @version      1.1.8
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -19,7 +19,7 @@
 (function () {
   'use strict';
 
-  const d=new Set;const e = async e=>{d.has(e)||(d.add(e),(t=>{typeof GM_addStyle=="function"?GM_addStyle(t):document.head.appendChild(document.createElement("style")).append(t);})(e));};
+  const d=new Set;const e = async e=>{d.has(e)||(d.add(e),(t=>{typeof GM_addStyle=="function"?GM_addStyle(t):(document.head||document.documentElement).appendChild(document.createElement("style")).append(t);})(e));};
 
   e(" .ik-anki-overlay.svelte-ny9p3g{position:fixed;inset:0;background:#00000073;z-index:999999;display:grid;place-items:center;padding:20px}.ik-anki-panel.svelte-ny9p3g{width:min(680px,100%);background:#0f1227;color:#e7e9f0;border-radius:12px;box-shadow:0 10px 30px #00000059;border:1px solid rgba(255,255,255,.08);display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}header.svelte-ny9p3g{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}header.svelte-ny9p3g h2:where(.svelte-ny9p3g){margin:0;font-size:16px;font-weight:600}header.svelte-ny9p3g .icon:where(.svelte-ny9p3g){border:none;background:transparent;color:#c7cbe1;cursor:pointer;font-size:18px;line-height:1;padding:6px;border-radius:6px}header.svelte-ny9p3g .icon:where(.svelte-ny9p3g):hover{background:#ffffff0f}main.svelte-ny9p3g{padding:16px;display:grid;gap:12px}label.svelte-ny9p3g{font-size:12px;color:#aab0d0}input[type=text].svelte-ny9p3g,input[type=password].svelte-ny9p3g,input[type=number].svelte-ny9p3g{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#111533;color:#e7e9f0;outline:none}input.svelte-ny9p3g:focus{border-color:#6ea8fe;box-shadow:0 0 0 3px #6ea8fe26}.row.svelte-ny9p3g{display:grid;gap:12px;grid-template-columns:1fr 1fr}.col.checkbox.svelte-ny9p3g{display:flex;align-items:end;gap:8px}.test.svelte-ny9p3g{display:flex;align-items:center;gap:10px}.test.svelte-ny9p3g span:where(.svelte-ny9p3g){font-size:12px}.test.svelte-ny9p3g span.ok:where(.svelte-ny9p3g){color:#5dd39e}.test.svelte-ny9p3g span.fail:where(.svelte-ny9p3g){color:#ff6b6b}.alert.error.svelte-ny9p3g{background:#ff6b6b14;color:#ffb3b3;border:1px solid rgba(255,107,107,.35);padding:10px 12px;border-radius:8px}footer.svelte-ny9p3g{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);background:#0c0f22}button.svelte-ny9p3g{cursor:pointer;border-radius:8px;padding:8px 14px;border:1px solid transparent;font-size:14px}.primary.svelte-ny9p3g{background:#6ea8fe;color:#071223;border-color:#6ea8fe}.primary.svelte-ny9p3g:hover{filter:brightness(1.05)}.ghost.svelte-ny9p3g{background:transparent;color:#c7cbe1;border-color:#fff3}.ghost.svelte-ny9p3g:hover{background:#ffffff0f}.secondary.svelte-ny9p3g{background:#2a2f52;color:#e7e9f0;border-color:#ffffff1f} ");
 
@@ -447,8 +447,6 @@
   var array_prototype = Array.prototype;
   var get_prototype_of = Object.getPrototypeOf;
   var is_extensible = Object.isExtensible;
-  const noop = () => {
-  };
   function run(fn) {
     return fn();
   }
@@ -469,12 +467,12 @@
   const DERIVED = 1 << 1;
   const EFFECT = 1 << 2;
   const RENDER_EFFECT = 1 << 3;
+  const MANAGED_EFFECT = 1 << 24;
   const BLOCK_EFFECT = 1 << 4;
   const BRANCH_EFFECT = 1 << 5;
   const ROOT_EFFECT = 1 << 6;
   const BOUNDARY_EFFECT = 1 << 7;
-  const UNOWNED = 1 << 8;
-  const DISCONNECTED = 1 << 9;
+  const CONNECTED = 1 << 9;
   const CLEAN = 1 << 10;
   const DIRTY = 1 << 11;
   const MAYBE_DIRTY = 1 << 12;
@@ -482,10 +480,11 @@
   const DESTROYED = 1 << 14;
   const EFFECT_RAN = 1 << 15;
   const EFFECT_TRANSPARENT = 1 << 16;
-  const INSPECT_EFFECT = 1 << 17;
+  const EAGER_EFFECT = 1 << 17;
   const HEAD_EFFECT = 1 << 18;
   const EFFECT_PRESERVED = 1 << 19;
   const USER_EFFECT = 1 << 20;
+  const WAS_MARKED = 1 << 15;
   const REACTION_IS_UPDATING = 1 << 21;
   const ASYNC = 1 << 22;
   const ERROR_VALUE = 1 << 23;
@@ -571,6 +570,7 @@
   function push(props, runes = false, fn) {
     component_context = {
       p: component_context,
+      i: false,
       c: null,
       e: null,
       s: props,
@@ -589,6 +589,7 @@ component_context
         create_user_effect(fn);
       }
     }
+    context.i = true;
     component_context = context.p;
     return (
 {}
@@ -617,7 +618,6 @@ component_context
       run_micro_tasks();
     }
   }
-  const adjustments = new WeakMap();
   function handle_error(error) {
     var effect2 = active_effect;
     if (effect2 === null) {
@@ -626,9 +626,6 @@ component_context
     }
     if ((effect2.f & EFFECT_RAN) === 0) {
       if ((effect2.f & BOUNDARY_EFFECT) === 0) {
-        if (!effect2.parent && error instanceof Error) {
-          apply_adjustments(error);
-        }
         throw error;
       }
       effect2.b.error(error);
@@ -648,74 +645,62 @@ component_context
       }
       effect2 = effect2.parent;
     }
-    if (error instanceof Error) {
-      apply_adjustments(error);
-    }
     throw error;
-  }
-  function apply_adjustments(error) {
-    const adjusted = adjustments.get(error);
-    if (adjusted) {
-      define_property(error, "message", {
-        value: adjusted.message
-      });
-      define_property(error, "stack", {
-        value: adjusted.stack
-      });
-    }
   }
   const batches = new Set();
   let current_batch = null;
   let previous_batch = null;
-  let effect_pending_updates = new Set();
+  let batch_values = null;
   let queued_root_effects = [];
   let last_scheduled_effect = null;
   let is_flushing = false;
   let is_flushing_sync = false;
   class Batch {
+    committed = false;
 current = new Map();
-#previous = new Map();
-#callbacks = new Set();
+previous = new Map();
+#commit_callbacks = new Set();
+#discard_callbacks = new Set();
 #pending = 0;
+#blocking_pending = 0;
 #deferred = null;
-#boundary_async_effects = [];
-#render_effects = [];
-#effects = [];
-#block_effects = [];
-#dirty_effects = [];
-#maybe_dirty_effects = [];
+#dirty_effects = new Set();
+#maybe_dirty_effects = new Set();
 skipped_effects = new Set();
+    is_fork = false;
+    is_deferred() {
+      return this.is_fork || this.#blocking_pending > 0;
+    }
 process(root_effects) {
       queued_root_effects = [];
       previous_batch = null;
-      var revert = Batch.apply(this);
+      this.apply();
+      var target = {
+        parent: null,
+        effect: null,
+        effects: [],
+        render_effects: []
+      };
       for (const root2 of root_effects) {
-        this.#traverse_effect_tree(root2);
+        this.#traverse_effect_tree(root2, target);
       }
-      if (this.#pending === 0) {
-        this.#commit();
-        var render_effects = this.#render_effects;
-        var effects = this.#effects;
-        this.#render_effects = [];
-        this.#effects = [];
-        this.#block_effects = [];
+      if (!this.is_fork) {
+        this.#resolve();
+      }
+      if (this.is_deferred()) {
+        this.#defer_effects(target.effects);
+        this.#defer_effects(target.render_effects);
+      } else {
         previous_batch = this;
         current_batch = null;
-        flush_queued_effects(render_effects);
-        flush_queued_effects(effects);
+        flush_queued_effects(target.render_effects);
+        flush_queued_effects(target.effects);
+        previous_batch = null;
         this.#deferred?.resolve();
-      } else {
-        this.#defer_effects(this.#render_effects);
-        this.#defer_effects(this.#effects);
-        this.#defer_effects(this.#block_effects);
       }
-      revert();
-      for (const effect2 of this.#boundary_async_effects) {
-        update_effect(effect2);
-      }
-      this.#boundary_async_effects = [];
+      batch_values = null;
     }
-#traverse_effect_tree(root2) {
+#traverse_effect_tree(root2, target) {
       root2.f ^= CLEAN;
       var effect2 = root2.first;
       while (effect2 !== null) {
@@ -723,18 +708,22 @@ process(root_effects) {
         var is_branch = (flags2 & (BRANCH_EFFECT | ROOT_EFFECT)) !== 0;
         var is_skippable_branch = is_branch && (flags2 & CLEAN) !== 0;
         var skip = is_skippable_branch || (flags2 & INERT) !== 0 || this.skipped_effects.has(effect2);
+        if ((effect2.f & BOUNDARY_EFFECT) !== 0 && effect2.b?.is_pending()) {
+          target = {
+            parent: target,
+            effect: effect2,
+            effects: [],
+            render_effects: []
+          };
+        }
         if (!skip && effect2.fn !== null) {
           if (is_branch) {
             effect2.f ^= CLEAN;
           } else if ((flags2 & EFFECT) !== 0) {
-            this.#effects.push(effect2);
-          } else if ((flags2 & CLEAN) === 0) {
-            if ((flags2 & ASYNC) !== 0 && effect2.b?.is_pending()) {
-              this.#boundary_async_effects.push(effect2);
-            } else if (is_dirty(effect2)) {
-              if ((effect2.f & BLOCK_EFFECT) !== 0) this.#block_effects.push(effect2);
-              update_effect(effect2);
-            }
+            target.effects.push(effect2);
+          } else if (is_dirty(effect2)) {
+            if ((effect2.f & BLOCK_EFFECT) !== 0) this.#dirty_effects.add(effect2);
+            update_effect(effect2);
           }
           var child2 = effect2.first;
           if (child2 !== null) {
@@ -745,6 +734,12 @@ process(root_effects) {
         var parent = effect2.parent;
         effect2 = effect2.next;
         while (effect2 === null && parent !== null) {
+          if (parent === target.effect) {
+            this.#defer_effects(target.effects);
+            this.#defer_effects(target.render_effects);
+            target =
+target.parent;
+          }
           effect2 = parent.next;
           parent = parent.parent;
         }
@@ -752,102 +747,152 @@ process(root_effects) {
     }
 #defer_effects(effects) {
       for (const e of effects) {
-        const target = (e.f & DIRTY) !== 0 ? this.#dirty_effects : this.#maybe_dirty_effects;
-        target.push(e);
+        if ((e.f & DIRTY) !== 0) {
+          this.#dirty_effects.add(e);
+        } else if ((e.f & MAYBE_DIRTY) !== 0) {
+          this.#maybe_dirty_effects.add(e);
+        }
+        this.#clear_marked(e.deps);
         set_signal_status(e, CLEAN);
       }
-      effects.length = 0;
+    }
+#clear_marked(deps) {
+      if (deps === null) return;
+      for (const dep of deps) {
+        if ((dep.f & DERIVED) === 0 || (dep.f & WAS_MARKED) === 0) {
+          continue;
+        }
+        dep.f ^= WAS_MARKED;
+        this.#clear_marked(
+dep.deps
+        );
+      }
     }
 capture(source2, value) {
-      if (!this.#previous.has(source2)) {
-        this.#previous.set(source2, value);
+      if (!this.previous.has(source2)) {
+        this.previous.set(source2, value);
       }
-      this.current.set(source2, source2.v);
+      if ((source2.f & ERROR_VALUE) === 0) {
+        this.current.set(source2, source2.v);
+        batch_values?.set(source2, source2.v);
+      }
     }
     activate() {
       current_batch = this;
+      this.apply();
     }
     deactivate() {
+      if (current_batch !== this) return;
       current_batch = null;
-      previous_batch = null;
-      for (const update of effect_pending_updates) {
-        effect_pending_updates.delete(update);
-        update();
-        if (current_batch !== null) {
-          break;
-        }
-      }
+      batch_values = null;
     }
     flush() {
+      this.activate();
       if (queued_root_effects.length > 0) {
-        this.activate();
         flush_effects();
         if (current_batch !== null && current_batch !== this) {
           return;
         }
       } else if (this.#pending === 0) {
-        this.#commit();
+        this.process([]);
       }
       this.deactivate();
     }
-#commit() {
-      for (const fn of this.#callbacks) {
-        fn();
+    discard() {
+      for (const fn of this.#discard_callbacks) fn(this);
+      this.#discard_callbacks.clear();
+    }
+    #resolve() {
+      if (this.#blocking_pending === 0) {
+        for (const fn of this.#commit_callbacks) fn();
+        this.#commit_callbacks.clear();
       }
-      this.#callbacks.clear();
+      if (this.#pending === 0) {
+        this.#commit();
+      }
+    }
+    #commit() {
       if (batches.size > 1) {
-        this.#previous.clear();
-        let is_earlier = true;
+        this.previous.clear();
+        var previous_batch_values = batch_values;
+        var is_earlier = true;
+        var dummy_target = {
+          parent: null,
+          effect: null,
+          effects: [],
+          render_effects: []
+        };
         for (const batch of batches) {
           if (batch === this) {
             is_earlier = false;
             continue;
           }
+          const sources = [];
           for (const [source2, value] of this.current) {
             if (batch.current.has(source2)) {
-              if (is_earlier) {
+              if (is_earlier && value !== batch.current.get(source2)) {
                 batch.current.set(source2, value);
               } else {
                 continue;
               }
             }
-            mark_effects(source2);
+            sources.push(source2);
           }
-          if (queued_root_effects.length > 0) {
-            current_batch = batch;
-            const revert = Batch.apply(batch);
-            for (const root2 of queued_root_effects) {
-              batch.#traverse_effect_tree(root2);
-            }
+          if (sources.length === 0) {
+            continue;
+          }
+          const others = [...batch.current.keys()].filter((s) => !this.current.has(s));
+          if (others.length > 0) {
+            var prev_queued_root_effects = queued_root_effects;
             queued_root_effects = [];
-            revert();
+            const marked = new Set();
+            const checked = new Map();
+            for (const source2 of sources) {
+              mark_effects(source2, others, marked, checked);
+            }
+            if (queued_root_effects.length > 0) {
+              current_batch = batch;
+              batch.apply();
+              for (const root2 of queued_root_effects) {
+                batch.#traverse_effect_tree(root2, dummy_target);
+              }
+              batch.deactivate();
+            }
+            queued_root_effects = prev_queued_root_effects;
           }
         }
         current_batch = null;
+        batch_values = previous_batch_values;
       }
+      this.committed = true;
       batches.delete(this);
     }
-    increment() {
+increment(blocking) {
       this.#pending += 1;
+      if (blocking) this.#blocking_pending += 1;
     }
-    decrement() {
+decrement(blocking) {
       this.#pending -= 1;
-      if (this.#pending === 0) {
-        for (const e of this.#dirty_effects) {
-          set_signal_status(e, DIRTY);
-          schedule_effect(e);
-        }
-        for (const e of this.#maybe_dirty_effects) {
-          set_signal_status(e, MAYBE_DIRTY);
-          schedule_effect(e);
-        }
-        this.flush();
-      } else {
-        this.deactivate();
-      }
+      if (blocking) this.#blocking_pending -= 1;
+      this.revive();
     }
-add_callback(fn) {
-      this.#callbacks.add(fn);
+    revive() {
+      for (const e of this.#dirty_effects) {
+        this.#maybe_dirty_effects.delete(e);
+        set_signal_status(e, DIRTY);
+        schedule_effect(e);
+      }
+      for (const e of this.#maybe_dirty_effects) {
+        set_signal_status(e, MAYBE_DIRTY);
+        schedule_effect(e);
+      }
+      this.flush();
+    }
+oncommit(fn) {
+      this.#commit_callbacks.add(fn);
+    }
+ondiscard(fn) {
+      this.#discard_callbacks.add(fn);
     }
     settled() {
       return (this.#deferred ??= deferred()).promise;
@@ -870,10 +915,8 @@ add_callback(fn) {
 static enqueue(task) {
       queue_micro_task(task);
     }
-static apply(current_batch2) {
-      {
-        return noop;
-      }
+    apply() {
+      return;
     }
   }
   function flushSync(fn) {
@@ -914,6 +957,7 @@ result
         }
         batch.process(queued_root_effects);
         old_values.clear();
+        if (DEV) ;
       }
     } finally {
       is_flushing = false;
@@ -936,35 +980,54 @@ result
     while (i < length) {
       var effect2 = effects[i++];
       if ((effect2.f & (DESTROYED | INERT)) === 0 && is_dirty(effect2)) {
-        eager_block_effects = [];
+        eager_block_effects = new Set();
         update_effect(effect2);
-        if (effect2.deps === null && effect2.first === null && effect2.nodes_start === null) {
+        if (effect2.deps === null && effect2.first === null && effect2.nodes === null) {
           if (effect2.teardown === null && effect2.ac === null) {
             unlink_effect(effect2);
           } else {
             effect2.fn = null;
           }
         }
-        if (eager_block_effects?.length > 0) {
+        if (eager_block_effects?.size > 0) {
           old_values.clear();
           for (const e of eager_block_effects) {
-            update_effect(e);
+            if ((e.f & (DESTROYED | INERT)) !== 0) continue;
+            const ordered_effects = [e];
+            let ancestor = e.parent;
+            while (ancestor !== null) {
+              if (eager_block_effects.has(ancestor)) {
+                eager_block_effects.delete(ancestor);
+                ordered_effects.push(ancestor);
+              }
+              ancestor = ancestor.parent;
+            }
+            for (let j = ordered_effects.length - 1; j >= 0; j--) {
+              const e2 = ordered_effects[j];
+              if ((e2.f & (DESTROYED | INERT)) !== 0) continue;
+              update_effect(e2);
+            }
           }
-          eager_block_effects = [];
+          eager_block_effects.clear();
         }
       }
     }
     eager_block_effects = null;
   }
-  function mark_effects(value) {
+  function mark_effects(value, sources, marked, checked) {
+    if (marked.has(value)) return;
+    marked.add(value);
     if (value.reactions !== null) {
       for (const reaction of value.reactions) {
         const flags2 = reaction.f;
         if ((flags2 & DERIVED) !== 0) {
           mark_effects(
-reaction
+reaction,
+            sources,
+            marked,
+            checked
           );
-        } else if ((flags2 & (ASYNC | BLOCK_EFFECT)) !== 0) {
+        } else if ((flags2 & (ASYNC | BLOCK_EFFECT)) !== 0 && (flags2 & DIRTY) === 0 && depends_on(reaction, sources, checked)) {
           set_signal_status(reaction, DIRTY);
           schedule_effect(
 reaction
@@ -973,12 +1036,36 @@ reaction
       }
     }
   }
+  function depends_on(reaction, sources, checked) {
+    const depends = checked.get(reaction);
+    if (depends !== void 0) return depends;
+    if (reaction.deps !== null) {
+      for (const dep of reaction.deps) {
+        if (sources.includes(dep)) {
+          return true;
+        }
+        if ((dep.f & DERIVED) !== 0 && depends_on(
+dep,
+          sources,
+          checked
+        )) {
+          checked.set(
+dep,
+            true
+          );
+          return true;
+        }
+      }
+    }
+    checked.set(reaction, false);
+    return false;
+  }
   function schedule_effect(signal) {
     var effect2 = last_scheduled_effect = signal;
     while (effect2.parent !== null) {
       effect2 = effect2.parent;
       var flags2 = effect2.f;
-      if (is_flushing && effect2 === active_effect && (flags2 & BLOCK_EFFECT) !== 0) {
+      if (is_flushing && effect2 === active_effect && (flags2 & BLOCK_EFFECT) !== 0 && (flags2 & HEAD_EFFECT) === 0) {
         return;
       }
       if ((flags2 & (ROOT_EFFECT | BRANCH_EFFECT)) !== 0) {
@@ -1030,15 +1117,11 @@ parent;
 #pending_effect = null;
 #failed_effect = null;
 #offscreen_fragment = null;
+#pending_anchor = null;
     #local_pending_count = 0;
     #pending_count = 0;
     #is_creating_fallback = false;
 #effect_pending = null;
-    #effect_pending_update = () => {
-      if (this.#effect_pending) {
-        internal_set(this.#effect_pending, this.#local_pending_count);
-      }
-    };
     #effect_pending_subscriber = createSubscriber(() => {
       this.#effect_pending = source(this.#local_pending_count);
       return () => {
@@ -1055,8 +1138,9 @@ active_effect.b;
       this.#effect = block(() => {
         active_effect.b = this;
         {
+          var anchor = this.#get_anchor();
           try {
-            this.#main_effect = branch(() => children(this.#anchor));
+            this.#main_effect = branch(() => children(anchor));
           } catch (error) {
             this.error(error);
           }
@@ -1066,6 +1150,9 @@ active_effect.b;
             this.#pending = false;
           }
         }
+        return () => {
+          this.#pending_anchor?.remove();
+        };
       }, flags);
     }
     #hydrate_resolved_content() {
@@ -1083,9 +1170,10 @@ active_effect.b;
       }
       this.#pending_effect = branch(() => pending(this.#anchor));
       Batch.enqueue(() => {
+        var anchor = this.#get_anchor();
         this.#main_effect = this.#run(() => {
           Batch.ensure();
-          return branch(() => this.#children(this.#anchor));
+          return branch(() => this.#children(anchor));
         });
         if (this.#pending_count > 0) {
           this.#show_pending_snippet();
@@ -1099,6 +1187,15 @@ this.#pending_effect,
           this.#pending = false;
         }
       });
+    }
+    #get_anchor() {
+      var anchor = this.#anchor;
+      if (this.#pending) {
+        this.#pending_anchor = create_text();
+        this.#anchor.before(this.#pending_anchor);
+        anchor = this.#pending_anchor;
+      }
+      return anchor;
     }
 is_pending() {
       return this.#pending || !!this.parent && this.parent.is_pending();
@@ -1130,6 +1227,9 @@ this.#props.pending
       );
       if (this.#main_effect !== null) {
         this.#offscreen_fragment = document.createDocumentFragment();
+        this.#offscreen_fragment.append(
+this.#pending_anchor
+        );
         move_effect(this.#main_effect, this.#offscreen_fragment);
       }
       if (this.#pending_effect === null) {
@@ -1160,7 +1260,9 @@ this.#props.pending
 update_pending_count(d) {
       this.#update_pending_count(d);
       this.#local_pending_count += d;
-      effect_pending_updates.add(this.#effect_pending_update);
+      if (this.#effect_pending) {
+        internal_set(this.#effect_pending, this.#local_pending_count);
+      }
     }
     get_effect_pending() {
       this.#effect_pending_subscriber();
@@ -1229,6 +1331,7 @@ error(error) {
       if (failed) {
         queue_micro_task(() => {
           this.#failed_effect = this.#run(() => {
+            Batch.ensure();
             this.#is_creating_fallback = true;
             try {
               return branch(() => {
@@ -1252,21 +1355,9 @@ this.#effect.parent
       }
     }
   }
-  function move_effect(effect2, fragment) {
-    var node = effect2.nodes_start;
-    var end = effect2.nodes_end;
-    while (node !== null) {
-      var next = node === end ? null : (
-
-get_next_sibling(node)
-      );
-      fragment.append(node);
-      node = next;
-    }
-  }
-  function flatten(sync, async, fn) {
+  function flatten(blockers, sync, async, fn) {
     const d = is_runes() ? derived : derived_safe_equal;
-    if (async.length === 0) {
+    if (async.length === 0 && blockers.length === 0) {
       fn(sync.map(d));
       return;
     }
@@ -1275,32 +1366,46 @@ get_next_sibling(node)
 active_effect
     );
     var restore = capture();
-    Promise.all(async.map((expression) => async_derived(expression))).then((result) => {
-      batch?.activate();
-      restore();
-      try {
-        fn([...sync.map(d), ...result]);
-      } catch (error) {
-        if ((parent.f & DESTROYED) === 0) {
-          invoke_error_boundary(error, parent);
+    function run2() {
+      Promise.all(async.map((expression) => async_derived(expression))).then((result) => {
+        restore();
+        try {
+          fn([...sync.map(d), ...result]);
+        } catch (error) {
+          if ((parent.f & DESTROYED) === 0) {
+            invoke_error_boundary(error, parent);
+          }
         }
-      }
-      batch?.deactivate();
-      unset_context();
-    }).catch((error) => {
-      invoke_error_boundary(error, parent);
-    });
+        batch?.deactivate();
+        unset_context();
+      }).catch((error) => {
+        invoke_error_boundary(error, parent);
+      });
+    }
+    if (blockers.length > 0) {
+      Promise.all(blockers).then(() => {
+        restore();
+        try {
+          return run2();
+        } finally {
+          batch?.deactivate();
+          unset_context();
+        }
+      });
+    } else {
+      run2();
+    }
   }
   function capture() {
     var previous_effect = active_effect;
     var previous_reaction = active_reaction;
     var previous_component_context = component_context;
     var previous_batch2 = current_batch;
-    return function restore() {
+    return function restore(activate_batch = true) {
       set_active_effect(previous_effect);
       set_active_reaction(previous_reaction);
       set_component_context(previous_component_context);
-      previous_batch2?.activate();
+      if (activate_batch) previous_batch2?.activate();
     };
   }
   function unset_context() {
@@ -1313,9 +1418,7 @@ function derived(fn) {
     var parent_derived = active_reaction !== null && (active_reaction.f & DERIVED) !== 0 ? (
 active_reaction
     ) : null;
-    if (active_effect === null || parent_derived !== null && (parent_derived.f & UNOWNED) !== 0) {
-      flags2 |= UNOWNED;
-    } else {
+    if (active_effect !== null) {
       active_effect.f |= EFFECT_PRESERVED;
     }
     const signal = {
@@ -1359,24 +1462,29 @@ UNINITIALIZED
       var d = deferred();
       promise = d.promise;
       try {
-        Promise.resolve(fn()).then(d.resolve, d.reject);
+        Promise.resolve(fn()).then(d.resolve, d.reject).then(() => {
+          if (batch === current_batch && batch.committed) {
+            batch.deactivate();
+          }
+          unset_context();
+        });
       } catch (error) {
         d.reject(error);
+        unset_context();
       }
       var batch = (
 current_batch
       );
-      var pending = boundary2.is_pending();
       if (should_suspend) {
+        var blocking = !boundary2.is_pending();
         boundary2.update_pending_count(1);
-        if (!pending) {
-          batch.increment();
-          deferreds.get(batch)?.reject(STALE_REACTION);
-          deferreds.set(batch, d);
-        }
+        batch.increment(blocking);
+        deferreds.get(batch)?.reject(STALE_REACTION);
+        deferreds.delete(batch);
+        deferreds.set(batch, d);
       }
       const handler = (value, error = void 0) => {
-        if (!pending) batch.activate();
+        batch.activate();
         if (error) {
           if (error !== STALE_REACTION) {
             signal.f |= ERROR_VALUE;
@@ -1387,12 +1495,16 @@ current_batch
             signal.f ^= ERROR_VALUE;
           }
           internal_set(signal, value);
+          for (const [b, d2] of deferreds) {
+            deferreds.delete(b);
+            if (b === batch) break;
+            d2.reject(STALE_REACTION);
+          }
         }
         if (should_suspend) {
           boundary2.update_pending_count(-1);
-          if (!pending) batch.decrement();
+          batch.decrement(blocking);
         }
-        unset_context();
       };
       d.promise.then(handler, (e) => handler(null, e || "unknown"));
     });
@@ -1435,9 +1547,9 @@ effects[i]
     var parent = derived2.parent;
     while (parent !== null) {
       if ((parent.f & DERIVED) === 0) {
-        return (
+        return (parent.f & DESTROYED) === 0 ? (
 parent
-        );
+        ) : null;
       }
       parent = parent.parent;
     }
@@ -1449,6 +1561,7 @@ parent
     set_active_effect(get_derived_parent_effect(derived2));
     {
       try {
+        derived2.f &= ~WAS_MARKED;
         destroy_derived_effects(derived2);
         value = update_reaction(derived2);
       } finally {
@@ -1460,18 +1573,26 @@ parent
   function update_derived(derived2) {
     var value = execute_derived(derived2);
     if (!derived2.equals(value)) {
-      derived2.v = value;
+      if (!current_batch?.is_fork) {
+        derived2.v = value;
+      }
       derived2.wv = increment_write_version();
     }
     if (is_destroying_effect) {
       return;
     }
-    {
-      var status = (skip_reaction || (derived2.f & UNOWNED) !== 0) && derived2.deps !== null ? MAYBE_DIRTY : CLEAN;
+    if (batch_values !== null) {
+      if (effect_tracking() || current_batch?.is_fork) {
+        batch_values.set(derived2, value);
+      }
+    } else {
+      var status = (derived2.f & CONNECTED) === 0 ? MAYBE_DIRTY : CLEAN;
       set_signal_status(derived2, status);
     }
   }
+  let eager_effects = new Set();
   const old_values = new Map();
+  let eager_effects_deferred = false;
   function source(v, stack) {
     var signal = {
       f: 0,
@@ -1483,7 +1604,7 @@ v,
     };
     return signal;
   }
-function state$1(v, stack) {
+function state(v, stack) {
     const s = source(v);
     push_reaction_value(s);
     return s;
@@ -1508,7 +1629,7 @@ function mutable_source(initial_value, immutable = false, trackable = true) {
   function set(source2, value, should_proxy = false) {
     if (active_reaction !== null &&
 
-(!untracking || (active_reaction.f & INSPECT_EFFECT) !== 0) && is_runes() && (active_reaction.f & (DERIVED | BLOCK_EFFECT | ASYNC | INSPECT_EFFECT)) !== 0 && !current_sources?.includes(source2)) {
+(!untracking || (active_reaction.f & EAGER_EFFECT) !== 0) && is_runes() && (active_reaction.f & (DERIVED | BLOCK_EFFECT | ASYNC | EAGER_EFFECT)) !== 0 && !current_sources?.includes(source2)) {
       state_unsafe_mutation();
     }
     let new_value = should_proxy ? proxy(value) : value;
@@ -1531,7 +1652,7 @@ function mutable_source(initial_value, immutable = false, trackable = true) {
 source2
           );
         }
-        set_signal_status(source2, (source2.f & UNOWNED) === 0 ? CLEAN : MAYBE_DIRTY);
+        set_signal_status(source2, (source2.f & CONNECTED) !== 0 ? CLEAN : MAYBE_DIRTY);
       }
       source2.wv = increment_write_version();
       mark_reactions(source2, DIRTY);
@@ -1542,8 +1663,30 @@ source2
           untracked_writes.push(source2);
         }
       }
+      if (!batch.is_fork && eager_effects.size > 0 && !eager_effects_deferred) {
+        flush_eager_effects();
+      }
     }
     return value;
+  }
+  function flush_eager_effects() {
+    eager_effects_deferred = false;
+    var prev_is_updating_effect = is_updating_effect;
+    set_is_updating_effect(true);
+    const inspects = Array.from(eager_effects);
+    try {
+      for (const effect2 of inspects) {
+        if ((effect2.f & CLEAN) !== 0) {
+          set_signal_status(effect2, MAYBE_DIRTY);
+        }
+        if (is_dirty(effect2)) {
+          update_effect(effect2);
+        }
+      }
+    } finally {
+      set_is_updating_effect(prev_is_updating_effect);
+    }
+    eager_effects.clear();
   }
   function increment(source2) {
     set(source2, source2.v + 1);
@@ -1562,17 +1705,21 @@ source2
         set_signal_status(reaction, status);
       }
       if ((flags2 & DERIVED) !== 0) {
-        mark_reactions(
-reaction,
-          MAYBE_DIRTY
-        );
-      } else if (not_dirty) {
-        if ((flags2 & BLOCK_EFFECT) !== 0) {
-          if (eager_block_effects !== null) {
-            eager_block_effects.push(
+        var derived2 = (
 reaction
-            );
+        );
+        batch_values?.delete(derived2);
+        if ((flags2 & WAS_MARKED) === 0) {
+          if (flags2 & CONNECTED) {
+            reaction.f |= WAS_MARKED;
           }
+          mark_reactions(derived2, MAYBE_DIRTY);
+        }
+      } else if (not_dirty) {
+        if ((flags2 & BLOCK_EFFECT) !== 0 && eager_block_effects !== null) {
+          eager_block_effects.add(
+reaction
+          );
         }
         schedule_effect(
 reaction
@@ -1590,7 +1737,7 @@ reaction
     }
     var sources = new Map();
     var is_proxied_array = is_array(value);
-    var version = state$1(0);
+    var version = state(0);
     var parent_version = update_version;
     var with_parent = (fn) => {
       if (update_version === parent_version) {
@@ -1606,7 +1753,7 @@ reaction
       return result;
     };
     if (is_proxied_array) {
-      sources.set("length", state$1(
+      sources.set("length", state(
 value.length
       ));
     }
@@ -1620,7 +1767,7 @@ value,
           var s = sources.get(prop2);
           if (s === void 0) {
             s = with_parent(() => {
-              var s2 = state$1(descriptor.value);
+              var s2 = state(descriptor.value);
               sources.set(prop2, s2);
               return s2;
             });
@@ -1633,7 +1780,7 @@ value,
           var s = sources.get(prop2);
           if (s === void 0) {
             if (prop2 in target) {
-              const s2 = with_parent(() => state$1(UNINITIALIZED));
+              const s2 = with_parent(() => state(UNINITIALIZED));
               sources.set(prop2, s2);
               increment(version);
             }
@@ -1652,7 +1799,7 @@ value,
           if (s === void 0 && (!exists || get_descriptor(target, prop2)?.writable)) {
             s = with_parent(() => {
               var p = proxy(exists ? target[prop2] : UNINITIALIZED);
-              var s2 = state$1(p);
+              var s2 = state(p);
               return s2;
             });
             sources.set(prop2, s);
@@ -1692,7 +1839,7 @@ value,
             if (s === void 0) {
               s = with_parent(() => {
                 var p = has ? proxy(target[prop2]) : UNINITIALIZED;
-                var s2 = state$1(p);
+                var s2 = state(p);
                 return s2;
               });
               sources.set(prop2, s);
@@ -1714,14 +1861,14 @@ s.v; i += 1) {
               if (other_s !== void 0) {
                 set(other_s, UNINITIALIZED);
               } else if (i in target) {
-                other_s = with_parent(() => state$1(UNINITIALIZED));
+                other_s = with_parent(() => state(UNINITIALIZED));
                 sources.set(i + "", other_s);
               }
             }
           }
           if (s === void 0) {
             if (!has || get_descriptor(target, prop2)?.writable) {
-              s = with_parent(() => state$1(void 0));
+              s = with_parent(() => state(void 0));
               set(s, proxy(value2));
               sources.set(prop2, s);
             }
@@ -1809,10 +1956,14 @@ sources.get("length")
     return document.createTextNode(value);
   }
 function get_first_child(node) {
-    return first_child_getter.call(node);
+    return (
+first_child_getter.call(node)
+    );
   }
 function get_next_sibling(node) {
-    return next_sibling_getter.call(node);
+    return (
+next_sibling_getter.call(node)
+    );
   }
   function child(node, is_text) {
     {
@@ -1878,10 +2029,10 @@ evt.target.elements
     add_form_reset_listener();
   }
   function validate_effect(rune) {
-    if (active_effect === null && active_reaction === null) {
-      effect_orphan();
-    }
-    if (active_reaction !== null && (active_reaction.f & UNOWNED) !== 0 && active_effect === null) {
+    if (active_effect === null) {
+      if (active_reaction === null) {
+        effect_orphan();
+      }
       effect_in_unowned_derived();
     }
     if (is_destroying_effect) {
@@ -1898,7 +2049,7 @@ evt.target.elements
       parent_effect.last = effect2;
     }
   }
-  function create_effect(type, fn, sync, push2 = true) {
+  function create_effect(type, fn, sync) {
     var parent = active_effect;
     if (parent !== null && (parent.f & INERT) !== 0) {
       type |= INERT;
@@ -1906,9 +2057,8 @@ evt.target.elements
     var effect2 = {
       ctx: component_context,
       deps: null,
-      nodes_start: null,
-      nodes_end: null,
-      f: type | DIRTY,
+      nodes: null,
+      f: type | DIRTY | CONNECTED,
       first: null,
       fn,
       last: null,
@@ -1917,7 +2067,6 @@ evt.target.elements
       b: parent && parent.b,
       prev: null,
       teardown: null,
-      transitions: null,
       wv: 0,
       ac: null
     };
@@ -1932,23 +2081,24 @@ evt.target.elements
     } else if (fn !== null) {
       schedule_effect(effect2);
     }
-    if (push2) {
-      var e = effect2;
-      if (sync && e.deps === null && e.teardown === null && e.nodes_start === null && e.first === e.last &&
+    var e = effect2;
+    if (sync && e.deps === null && e.teardown === null && e.nodes === null && e.first === e.last &&
 (e.f & EFFECT_PRESERVED) === 0) {
-        e = e.first;
+      e = e.first;
+      if ((type & BLOCK_EFFECT) !== 0 && (type & EFFECT_TRANSPARENT) !== 0 && e !== null) {
+        e.f |= EFFECT_TRANSPARENT;
       }
-      if (e !== null) {
-        e.parent = parent;
-        if (parent !== null) {
-          push_effect(e, parent);
-        }
-        if (active_reaction !== null && (active_reaction.f & DERIVED) !== 0 && (type & ROOT_EFFECT) === 0) {
-          var derived2 = (
+    }
+    if (e !== null) {
+      e.parent = parent;
+      if (parent !== null) {
+        push_effect(e, parent);
+      }
+      if (active_reaction !== null && (active_reaction.f & DERIVED) !== 0 && (type & ROOT_EFFECT) === 0) {
+        var derived2 = (
 active_reaction
-          );
-          (derived2.effects ??= []).push(e);
-        }
+        );
+        (derived2.effects ??= []).push(e);
       }
     }
     return effect2;
@@ -2010,8 +2160,8 @@ component_context
   function render_effect(fn, flags2 = 0) {
     return create_effect(RENDER_EFFECT | flags2, fn, true);
   }
-  function template_effect(fn, sync = [], async = []) {
-    flatten(sync, async, (values) => {
+  function template_effect(fn, sync = [], async = [], blockers = []) {
+    flatten(blockers, sync, async, (values) => {
       create_effect(RENDER_EFFECT, () => fn(...values.map(get)), true);
     });
   }
@@ -2019,8 +2169,8 @@ component_context
     var effect2 = create_effect(BLOCK_EFFECT | flags2, fn, true);
     return effect2;
   }
-  function branch(fn, push2 = true) {
-    return create_effect(BRANCH_EFFECT | EFFECT_PRESERVED, fn, true, push2);
+  function branch(fn) {
+    return create_effect(BRANCH_EFFECT | EFFECT_PRESERVED, fn, true);
   }
   function execute_effect_teardown(effect2) {
     var teardown2 = effect2.teardown;
@@ -2068,17 +2218,17 @@ component_context
   }
   function destroy_effect(effect2, remove_dom = true) {
     var removed = false;
-    if ((remove_dom || (effect2.f & HEAD_EFFECT) !== 0) && effect2.nodes_start !== null && effect2.nodes_end !== null) {
+    if ((remove_dom || (effect2.f & HEAD_EFFECT) !== 0) && effect2.nodes !== null && effect2.nodes.end !== null) {
       remove_effect_dom(
-        effect2.nodes_start,
-effect2.nodes_end
+        effect2.nodes.start,
+effect2.nodes.end
       );
       removed = true;
     }
     destroy_effect_children(effect2, remove_dom && !removed);
     remove_reactions(effect2, 0);
     set_signal_status(effect2, DESTROYED);
-    var transitions = effect2.transitions;
+    var transitions = effect2.nodes && effect2.nodes.t;
     if (transitions !== null) {
       for (const transition of transitions) {
         transition.stop();
@@ -2089,14 +2239,11 @@ effect2.nodes_end
     if (parent !== null && parent.first !== null) {
       unlink_effect(effect2);
     }
-    effect2.next = effect2.prev = effect2.teardown = effect2.ctx = effect2.deps = effect2.fn = effect2.nodes_start = effect2.nodes_end = effect2.ac = null;
+    effect2.next = effect2.prev = effect2.teardown = effect2.ctx = effect2.deps = effect2.fn = effect2.nodes = effect2.ac = null;
   }
   function remove_effect_dom(node, end) {
     while (node !== null) {
-      var next = node === end ? null : (
-
-get_next_sibling(node)
-      );
+      var next = node === end ? null : get_next_sibling(node);
       node.remove();
       node = next;
     }
@@ -2112,15 +2259,13 @@ get_next_sibling(node)
       if (parent.last === effect2) parent.last = prev;
     }
   }
-  function pause_effect(effect2, callback) {
+  function pause_effect(effect2, callback, destroy = true) {
     var transitions = [];
     pause_children(effect2, transitions, true);
-    run_out_transitions(transitions, () => {
-      destroy_effect(effect2);
+    var fn = () => {
+      if (destroy) destroy_effect(effect2);
       if (callback) callback();
-    });
-  }
-  function run_out_transitions(transitions, fn) {
+    };
     var remaining = transitions.length;
     if (remaining > 0) {
       var check = () => --remaining || fn();
@@ -2134,8 +2279,9 @@ get_next_sibling(node)
   function pause_children(effect2, transitions, local) {
     if ((effect2.f & INERT) !== 0) return;
     effect2.f ^= INERT;
-    if (effect2.transitions !== null) {
-      for (const transition of effect2.transitions) {
+    var t = effect2.nodes && effect2.nodes.t;
+    if (t !== null) {
+      for (const transition of t) {
         if (transition.is_global || local) {
           transitions.push(transition);
         }
@@ -2144,7 +2290,10 @@ get_next_sibling(node)
     var child2 = effect2.first;
     while (child2 !== null) {
       var sibling2 = child2.next;
-      var transparent = (child2.f & EFFECT_TRANSPARENT) !== 0 || (child2.f & BRANCH_EFFECT) !== 0;
+      var transparent = (child2.f & EFFECT_TRANSPARENT) !== 0 ||
+
+
+(child2.f & BRANCH_EFFECT) !== 0 && (effect2.f & BLOCK_EFFECT) !== 0;
       pause_children(child2, transitions, transparent ? local : false);
       child2 = sibling2;
     }
@@ -2166,12 +2315,23 @@ get_next_sibling(node)
       resume_children(child2, transparent ? local : false);
       child2 = sibling2;
     }
-    if (effect2.transitions !== null) {
-      for (const transition of effect2.transitions) {
+    var t = effect2.nodes && effect2.nodes.t;
+    if (t !== null) {
+      for (const transition of t) {
         if (transition.is_global || local) {
           transition.in();
         }
       }
+    }
+  }
+  function move_effect(effect2, fragment) {
+    if (!effect2.nodes) return;
+    var node = effect2.nodes.start;
+    var end = effect2.nodes.end;
+    while (node !== null) {
+      var next = node === end ? null : get_next_sibling(node);
+      fragment.append(node);
+      node = next;
     }
   }
   let captured_signals = null;
@@ -2234,7 +2394,6 @@ get_next_sibling(node)
   function set_update_version(value) {
     update_version = value;
   }
-  let skip_reaction = false;
   function increment_write_version() {
     return ++write_version;
   }
@@ -2243,35 +2402,15 @@ get_next_sibling(node)
     if ((flags2 & DIRTY) !== 0) {
       return true;
     }
+    if (flags2 & DERIVED) {
+      reaction.f &= ~WAS_MARKED;
+    }
     if ((flags2 & MAYBE_DIRTY) !== 0) {
       var dependencies = reaction.deps;
-      var is_unowned = (flags2 & UNOWNED) !== 0;
       if (dependencies !== null) {
-        var i;
-        var dependency;
-        var is_disconnected = (flags2 & DISCONNECTED) !== 0;
-        var is_unowned_connected = is_unowned && active_effect !== null && !skip_reaction;
         var length = dependencies.length;
-        if ((is_disconnected || is_unowned_connected) && (active_effect === null || (active_effect.f & DESTROYED) === 0)) {
-          var derived2 = (
-reaction
-          );
-          var parent = derived2.parent;
-          for (i = 0; i < length; i++) {
-            dependency = dependencies[i];
-            if (is_disconnected || !dependency?.reactions?.includes(derived2)) {
-              (dependency.reactions ??= []).push(derived2);
-            }
-          }
-          if (is_disconnected) {
-            derived2.f ^= DISCONNECTED;
-          }
-          if (is_unowned_connected && parent !== null && (parent.f & UNOWNED) === 0) {
-            derived2.f ^= UNOWNED;
-          }
-        }
-        for (i = 0; i < length; i++) {
-          dependency = dependencies[i];
+        for (var i = 0; i < length; i++) {
+          var dependency = dependencies[i];
           if (is_dirty(
 dependency
           )) {
@@ -2284,7 +2423,9 @@ dependency
           }
         }
       }
-      if (!is_unowned || active_effect !== null && !skip_reaction) {
+      if ((flags2 & CONNECTED) !== 0 &&
+
+batch_values === null) {
         set_signal_status(reaction, CLEAN);
       }
     }
@@ -2321,7 +2462,6 @@ reaction
     var previous_skipped_deps = skipped_deps;
     var previous_untracked_writes = untracked_writes;
     var previous_reaction = active_reaction;
-    var previous_skip_reaction = skip_reaction;
     var previous_sources = current_sources;
     var previous_component_context = component_context;
     var previous_untracking = untracking;
@@ -2331,7 +2471,6 @@ reaction
 null;
     skipped_deps = 0;
     untracked_writes = null;
-    skip_reaction = (flags2 & UNOWNED) !== 0 && (untracking || !is_updating_effect || active_reaction === null);
     active_reaction = (flags2 & (BRANCH_EFFECT | ROOT_EFFECT)) === 0 ? reaction : null;
     current_sources = null;
     set_component_context(reaction.ctx);
@@ -2361,9 +2500,7 @@ reaction.fn
         } else {
           reaction.deps = deps = new_deps;
         }
-        if (!skip_reaction ||
-(flags2 & DERIVED) !== 0 &&
-reaction.reactions !== null) {
+        if (effect_tracking() && (reaction.f & CONNECTED) !== 0) {
           for (i = skipped_deps; i < deps.length; i++) {
             (deps[i].reactions ??= []).push(reaction);
           }
@@ -2404,7 +2541,6 @@ untracked_writes);
       skipped_deps = previous_skipped_deps;
       untracked_writes = previous_untracked_writes;
       active_reaction = previous_reaction;
-      skip_reaction = previous_skip_reaction;
       current_sources = previous_sources;
       set_component_context(previous_component_context);
       untracking = previous_untracking;
@@ -2430,8 +2566,9 @@ untracked_writes);
 
 (new_deps === null || !new_deps.includes(dependency))) {
       set_signal_status(dependency, MAYBE_DIRTY);
-      if ((dependency.f & (UNOWNED | DISCONNECTED)) === 0) {
-        dependency.f ^= DISCONNECTED;
+      if ((dependency.f & CONNECTED) !== 0) {
+        dependency.f ^= CONNECTED;
+        dependency.f &= ~WAS_MARKED;
       }
       destroy_derived_effects(
 dependency
@@ -2460,7 +2597,7 @@ dependency,
     active_effect = effect2;
     is_updating_effect = true;
     try {
-      if ((flags2 & BLOCK_EFFECT) !== 0) {
+      if ((flags2 & (BLOCK_EFFECT | MANAGED_EFFECT)) !== 0) {
         destroy_block_effect_children(effect2);
       } else {
         destroy_effect_children(effect2);
@@ -2495,7 +2632,7 @@ dependency,
               skipped_deps++;
             } else if (new_deps === null) {
               new_deps = [signal];
-            } else if (!skip_reaction || !new_deps.includes(signal)) {
+            } else if (!new_deps.includes(signal)) {
               new_deps.push(signal);
             }
           }
@@ -2509,24 +2646,15 @@ dependency,
           }
         }
       }
-    } else if (is_derived &&
-signal.deps === null &&
-signal.effects === null) {
-      var derived2 = (
-signal
-      );
-      var parent = derived2.parent;
-      if (parent !== null && (parent.f & UNOWNED) === 0) {
-        derived2.f ^= UNOWNED;
-      }
     }
     if (is_destroying_effect) {
       if (old_values.has(signal)) {
         return old_values.get(signal);
       }
       if (is_derived) {
-        derived2 =
-signal;
+        var derived2 = (
+signal
+        );
         var value = derived2.v;
         if ((derived2.f & CLEAN) === 0 && derived2.reactions !== null || depends_on_old_values(derived2)) {
           value = execute_derived(derived2);
@@ -2534,17 +2662,35 @@ signal;
         old_values.set(derived2, value);
         return value;
       }
-    } else if (is_derived) {
+    } else if (is_derived && (!batch_values?.has(signal) || current_batch?.is_fork && !effect_tracking())) {
       derived2 =
 signal;
       if (is_dirty(derived2)) {
         update_derived(derived2);
       }
+      if (is_updating_effect && effect_tracking() && (derived2.f & CONNECTED) === 0) {
+        reconnect(derived2);
+      }
+    }
+    if (batch_values?.has(signal)) {
+      return batch_values.get(signal);
     }
     if ((signal.f & ERROR_VALUE) !== 0) {
       throw signal.v;
     }
     return signal.v;
+  }
+  function reconnect(derived2) {
+    if (derived2.deps === null) return;
+    derived2.f ^= CONNECTED;
+    for (const dep of derived2.deps) {
+      (dep.reactions ??= []).push(derived2);
+      if ((dep.f & DERIVED) !== 0 && (dep.f & CONNECTED) === 0) {
+        reconnect(
+dep
+        );
+      }
+    }
   }
   function depends_on_old_values(derived2) {
     if (derived2.v === UNINITIALIZED) return true;
@@ -2705,12 +2851,7 @@ current_target.host || null;
 current_target.disabled ||
 
 event2.target === current_target)) {
-            if (is_array(delegated)) {
-              var [fn, ...data] = delegated;
-              fn.apply(current_target, [event2, ...data]);
-            } else {
-              delegated.call(current_target, event2);
-            }
+            delegated.call(current_target, event2);
           }
         } catch (error) {
           if (throw_error) {
@@ -2748,9 +2889,8 @@ event2.target === current_target)) {
     var effect2 = (
 active_effect
     );
-    if (effect2.nodes_start === null) {
-      effect2.nodes_start = start;
-      effect2.nodes_end = end;
+    if (effect2.nodes === null) {
+      effect2.nodes = { start, end, a: null, t: null };
     }
   }
 function from_html(content, flags2) {
@@ -2873,50 +3013,115 @@ document_listeners.get(event_name)
     }
     return Promise.resolve();
   }
-  function if_block(node, fn, elseif = false) {
-    var anchor = node;
-    var consequent_effect = null;
-    var alternate_effect = null;
-    var condition = UNINITIALIZED;
-    var flags2 = elseif ? EFFECT_TRANSPARENT : 0;
-    var has_branch = false;
-    const set_branch = (fn2, flag = true) => {
-      has_branch = true;
-      update_branch(flag, fn2);
-    };
-    function commit() {
-      var active = condition ? consequent_effect : alternate_effect;
-      var inactive = condition ? alternate_effect : consequent_effect;
-      if (active) {
-        resume_effect(active);
+  class BranchManager {
+anchor;
+#batches = new Map();
+#onscreen = new Map();
+#offscreen = new Map();
+#outroing = new Set();
+#transition = true;
+constructor(anchor, transition = true) {
+      this.anchor = anchor;
+      this.#transition = transition;
+    }
+    #commit = () => {
+      var batch = (
+current_batch
+      );
+      if (!this.#batches.has(batch)) return;
+      var key = (
+this.#batches.get(batch)
+      );
+      var onscreen = this.#onscreen.get(key);
+      if (onscreen) {
+        resume_effect(onscreen);
+        this.#outroing.delete(key);
+      } else {
+        var offscreen = this.#offscreen.get(key);
+        if (offscreen) {
+          this.#onscreen.set(key, offscreen.effect);
+          this.#offscreen.delete(key);
+          offscreen.fragment.lastChild.remove();
+          this.anchor.before(offscreen.fragment);
+          onscreen = offscreen.effect;
+        }
       }
-      if (inactive) {
-        pause_effect(inactive, () => {
-          if (condition) {
-            alternate_effect = null;
+      for (const [b, k] of this.#batches) {
+        this.#batches.delete(b);
+        if (b === batch) {
+          break;
+        }
+        const offscreen2 = this.#offscreen.get(k);
+        if (offscreen2) {
+          destroy_effect(offscreen2.effect);
+          this.#offscreen.delete(k);
+        }
+      }
+      for (const [k, effect2] of this.#onscreen) {
+        if (k === key || this.#outroing.has(k)) continue;
+        const on_destroy = () => {
+          const keys = Array.from(this.#batches.values());
+          if (keys.includes(k)) {
+            var fragment = document.createDocumentFragment();
+            move_effect(effect2, fragment);
+            fragment.append(create_text());
+            this.#offscreen.set(k, { effect: effect2, fragment });
           } else {
-            consequent_effect = null;
+            destroy_effect(effect2);
           }
-        });
+          this.#outroing.delete(k);
+          this.#onscreen.delete(k);
+        };
+        if (this.#transition || !onscreen) {
+          this.#outroing.add(k);
+          pause_effect(effect2, on_destroy, false);
+        } else {
+          on_destroy();
+        }
+      }
+    };
+#discard = (batch) => {
+      this.#batches.delete(batch);
+      const keys = Array.from(this.#batches.values());
+      for (const [k, branch2] of this.#offscreen) {
+        if (!keys.includes(k)) {
+          destroy_effect(branch2.effect);
+          this.#offscreen.delete(k);
+        }
+      }
+    };
+ensure(key, fn) {
+      var batch = (
+current_batch
+      );
+      if (fn && !this.#onscreen.has(key) && !this.#offscreen.has(key)) {
+        {
+          this.#onscreen.set(
+            key,
+            branch(() => fn(this.anchor))
+          );
+        }
+      }
+      this.#batches.set(batch, key);
+      {
+        this.#commit();
       }
     }
-    const update_branch = (new_condition, fn2) => {
-      if (condition === (condition = new_condition)) return;
-      var target = anchor;
-      if (condition) {
-        consequent_effect ??= fn2 && branch(() => fn2(target));
-      } else {
-        alternate_effect ??= fn2 && branch(() => fn2(target));
-      }
-      {
-        commit();
-      }
-    };
+  }
+  function if_block(node, fn, elseif = false) {
+    var branches = new BranchManager(node);
+    var flags2 = elseif ? EFFECT_TRANSPARENT : 0;
+    function update_branch(condition, fn2) {
+      branches.ensure(condition, fn2);
+    }
     block(() => {
-      has_branch = false;
-      fn(set_branch);
+      var has_branch = false;
+      fn((fn2, flag = true) => {
+        has_branch = true;
+        update_branch(flag, fn2);
+      });
       if (!has_branch) {
-        update_branch(null, null);
+        update_branch(false, null);
       }
     }, flags2);
   }
@@ -3007,6 +3212,7 @@ attributes: true,
     });
   }
   function bind_select_value(select, get2, set2 = get2) {
+    var batches2 = new WeakSet();
     var mounting = true;
     listen_to_event_and_reset_event(select, "change", (is_reset) => {
       var query = is_reset ? "[selected]" : ":checked";
@@ -3019,9 +3225,20 @@ select.querySelector("option:not([disabled])");
         value = selected_option && get_option_value(selected_option);
       }
       set2(value);
+      if (current_batch !== null) {
+        batches2.add(current_batch);
+      }
     });
     effect(() => {
       var value = get2();
+      if (select === document.activeElement) {
+        var batch = (
+previous_batch ?? current_batch
+        );
+        if (batches2.has(batch)) {
+          return;
+        }
+      }
       select_option(select, value, mounting);
       if (mounting && value === void 0) {
         var selected_option = select.querySelector(":checked");
@@ -3055,10 +3272,17 @@ select.querySelector("option:not([disabled])");
       if (value !== (value = get2())) {
         var start = input.selectionStart;
         var end = input.selectionEnd;
+        var length = input.value.length;
         input.value = value ?? "";
         if (end !== null) {
-          input.selectionStart = start;
-          input.selectionEnd = Math.min(end, input.value.length);
+          var new_length = input.value.length;
+          if (start === end && end === length && new_length > length) {
+            input.selectionStart = new_length;
+            input.selectionEnd = new_length;
+          } else {
+            input.selectionStart = start;
+            input.selectionEnd = Math.min(end, new_length);
+          }
         }
       }
     });
@@ -3302,7 +3526,7 @@ active_effect
       })
     );
   }
-  const CONFIG = {
+  const DEFAULTS = Object.freeze({
     ANKI_CONNECT_URL: "http://127.0.0.1:8765",
     ANKI_CONNECT_KEY: null,
     IMAGE_FIELD_NAME: "Picture",
@@ -3312,18 +3536,33 @@ active_effect
     TARGET_NOTE_MODE: "recent",
     CAPTURE_TIMEOUT_MS: 2e3,
     OPEN_EDITOR_KEY: "e"
-  };
-  function getSettings() {
+  });
+  function getConfig() {
     const savedOpenEditorKey = _GM_getValue?.("openEditorKey");
     return {
-      ankiUrl: _GM_getValue?.("ankiUrl") || CONFIG.ANKI_CONNECT_URL,
-      ankiKey: _GM_getValue?.("ankiKey") || (CONFIG.ANKI_CONNECT_KEY || ""),
-      imageField: _GM_getValue?.("imageField") || CONFIG.IMAGE_FIELD_NAME,
-      audioField: _GM_getValue?.("audioField") || CONFIG.AUDIO_FIELD_NAME,
-      exampleIndex: Number(_GM_getValue?.("exampleIndex") ?? CONFIG.EXAMPLE_INDEX) || 0,
-      confirmOverwrite: Boolean(_GM_getValue?.("confirmOverwrite") ?? CONFIG.CONFIRM_OVERWRITE),
-      targetNoteMode: _GM_getValue?.("targetNoteMode") || CONFIG.TARGET_NOTE_MODE,
-      openEditorKey: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : CONFIG.OPEN_EDITOR_KEY
+      ANKI_CONNECT_URL: _GM_getValue?.("ankiUrl") || DEFAULTS.ANKI_CONNECT_URL,
+      ANKI_CONNECT_KEY: _GM_getValue?.("ankiKey") || DEFAULTS.ANKI_CONNECT_KEY,
+      IMAGE_FIELD_NAME: _GM_getValue?.("imageField") || DEFAULTS.IMAGE_FIELD_NAME,
+      AUDIO_FIELD_NAME: _GM_getValue?.("audioField") || DEFAULTS.AUDIO_FIELD_NAME,
+      EXAMPLE_INDEX: Number(_GM_getValue?.("exampleIndex") ?? DEFAULTS.EXAMPLE_INDEX) || 0,
+      CONFIRM_OVERWRITE: Boolean(_GM_getValue?.("confirmOverwrite") ?? DEFAULTS.CONFIRM_OVERWRITE),
+      TARGET_NOTE_MODE: _GM_getValue?.("targetNoteMode") || DEFAULTS.TARGET_NOTE_MODE,
+      CAPTURE_TIMEOUT_MS: DEFAULTS.CAPTURE_TIMEOUT_MS,
+OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : DEFAULTS.OPEN_EDITOR_KEY
+    };
+  }
+  const CONFIG = { ...DEFAULTS };
+  function getSettings() {
+    const config = getConfig();
+    return {
+      ankiUrl: config.ANKI_CONNECT_URL,
+      ankiKey: config.ANKI_CONNECT_KEY || "",
+      imageField: config.IMAGE_FIELD_NAME,
+      audioField: config.AUDIO_FIELD_NAME,
+      exampleIndex: config.EXAMPLE_INDEX,
+      confirmOverwrite: config.CONFIRM_OVERWRITE,
+      targetNoteMode: config.TARGET_NOTE_MODE,
+      openEditorKey: config.OPEN_EDITOR_KEY
     };
   }
   function saveSettings(s) {
@@ -3336,14 +3575,6 @@ active_effect
     _GM_setValue?.("confirmOverwrite", !!s.confirmOverwrite);
     _GM_setValue?.("targetNoteMode", s.targetNoteMode === "selected" ? "selected" : "recent");
     _GM_setValue?.("openEditorKey", openEditorKey);
-    CONFIG.ANKI_CONNECT_URL = s.ankiUrl.trim() || CONFIG.ANKI_CONNECT_URL;
-    CONFIG.ANKI_CONNECT_KEY = s.ankiKey.trim() || null;
-    CONFIG.IMAGE_FIELD_NAME = s.imageField.trim() || CONFIG.IMAGE_FIELD_NAME;
-    CONFIG.AUDIO_FIELD_NAME = s.audioField.trim() || CONFIG.AUDIO_FIELD_NAME;
-    CONFIG.EXAMPLE_INDEX = Number.isFinite(s.exampleIndex) ? s.exampleIndex : CONFIG.EXAMPLE_INDEX;
-    CONFIG.CONFIRM_OVERWRITE = !!s.confirmOverwrite;
-    CONFIG.TARGET_NOTE_MODE = s.targetNoteMode === "selected" ? "selected" : "recent";
-    CONFIG.OPEN_EDITOR_KEY = openEditorKey;
   }
   function isObject(value) {
     return typeof value === "object" && value !== null;
@@ -3352,9 +3583,10 @@ active_effect
     return isObject(obj) && key in obj;
   }
   function invokeAnkiConnect(action, params = {}) {
+    const config = getConfig();
     const payload = { action, version: 6, params };
-    if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
-    const endpoints = [CONFIG.ANKI_CONNECT_URL, "http://localhost:8765"];
+    if (config.ANKI_CONNECT_KEY) payload.key = config.ANKI_CONNECT_KEY;
+    const endpoints = [config.ANKI_CONNECT_URL, "http://localhost:8765"];
     console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
     return new Promise((resolve, reject) => {
       let tried = 0;
@@ -3620,13 +3852,10 @@ active_effect
         var span = root_2();
         let classes;
         var text_2 = child(span);
-        template_effect(
-          ($0) => {
-            classes = set_class(span, 1, "svelte-ny9p3g", null, classes, $0);
-            set_text(text_2, get(testMessage));
-          },
-          [() => ({ ok: get(testOk), fail: !get(testOk) })]
-        );
+        template_effect(() => {
+          classes = set_class(span, 1, "svelte-ny9p3g", null, classes, { ok: get(testOk), fail: !get(testOk) });
+          set_text(text_2, get(testMessage));
+        });
         append($$anchor2, span);
       };
       if_block(node_1, ($$render) => {
@@ -3724,6 +3953,13 @@ active_effect
         resolve(document.querySelector(selector));
       }, timeoutMs);
     });
+  }
+  function isTextInputTarget(target) {
+    if (!target) return false;
+    const el = target;
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    return Boolean(el.isContentEditable);
   }
   function findSecondaryMenuFromTrigger(triggerEl) {
     if (!triggerEl) return null;
@@ -3857,7 +4093,8 @@ active_effect
     } catch {
     }
     const t0 = performance.now();
-    while (!captured.done && performance.now() - t0 < CONFIG.CAPTURE_TIMEOUT_MS) {
+    const { CAPTURE_TIMEOUT_MS } = getConfig();
+    while (!captured.done && performance.now() - t0 < CAPTURE_TIMEOUT_MS) {
       await sleep(40);
     }
     cleanup();
@@ -3931,30 +4168,57 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
     return { valid: true };
   }
-  const state = {
+  class StateManager {
+    state;
+    listeners = new Set();
+    constructor(initialState) {
+      this.state = { ...initialState };
+    }
+getState() {
+      return { ...this.state };
+    }
+setState(partial) {
+      this.state = { ...this.state, ...partial };
+      this.notifyListeners();
+    }
+subscribe(fn) {
+      this.listeners.add(fn);
+      return () => this.listeners.delete(fn);
+    }
+notifyListeners() {
+      const currentState = this.getState();
+      for (const fn of this.listeners) {
+        try {
+          fn(currentState);
+        } catch (e) {
+          console.error("[StateManager] Listener error:", e);
+        }
+      }
+    }
+  }
+  const stateManager = new StateManager({
     status: "idle",
     currentIndex: 0,
     totalOnPage: 0,
     loopEnabled: false,
-    bookmarkedIndices: new Set()
-  };
+    bookmarkedIndices: new Set(),
+    wasSkipped: false
+  });
   let currentAudio = null;
-  let stateChangeListeners = [];
-  let shortcutRegistered = false;
   let skipResolve = null;
-  let wasSkipped = false;
-  function notifyStateChange() {
-    const snapshot = { ...state };
-    stateChangeListeners.forEach((fn) => fn(snapshot));
-  }
+  let shortcutRegistered = false;
   function onStateChange(fn) {
-    stateChangeListeners.push(fn);
-    return () => {
-      stateChangeListeners = stateChangeListeners.filter((f) => f !== fn);
-    };
+    return stateManager.subscribe(fn);
   }
   function getState() {
-    return { ...state };
+    const s = stateManager.getState();
+    return {
+      status: s.status,
+      currentIndex: s.currentIndex,
+      totalOnPage: s.totalOnPage,
+      loopEnabled: s.loopEnabled,
+      bookmarkedIndices: s.bookmarkedIndices
+    };
   }
   function highlightExample(index) {
     document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
@@ -3968,8 +4232,9 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   }
   function updateBookmarkVisuals() {
     const groups = getExampleGroups();
+    const { bookmarkedIndices } = stateManager.getState();
     groups.forEach((group, idx) => {
-      if (state.bookmarkedIndices.has(idx)) {
+      if (bookmarkedIndices.has(idx)) {
         group.exampleDesktop.classList.add(CLASSES.BOOKMARKED);
       } else {
         group.exampleDesktop.classList.remove(CLASSES.BOOKMARKED);
@@ -4061,33 +4326,29 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
   }
   async function playLoop() {
-    while (state.status === "playing") {
+    while (stateManager.getState().status === "playing") {
       const groups = getExampleGroups();
-      state.totalOnPage = groups.length;
-      notifyStateChange();
-      if (state.currentIndex >= groups.length) {
+      stateManager.setState({ totalOnPage: groups.length });
+      const state2 = stateManager.getState();
+      if (state2.currentIndex >= groups.length) {
         const hasNextPage = await goToNextPage();
         if (hasNextPage) {
-          state.currentIndex = 0;
-          notifyStateChange();
+          stateManager.setState({ currentIndex: 0 });
           continue;
         } else {
-          if (state.loopEnabled) {
-            state.currentIndex = 0;
-            notifyStateChange();
+          if (state2.loopEnabled) {
+            stateManager.setState({ currentIndex: 0 });
             continue;
           } else {
-            state.status = "stopped";
-            state.currentIndex = 0;
+            stateManager.setState({ status: "stopped", currentIndex: 0 });
             clearHighlight();
-            notifyStateChange();
             return;
           }
         }
       }
-      highlightExample(state.currentIndex);
-      await playAudioAtIndex(state.currentIndex);
-      if (getState().status === "paused") {
+      highlightExample(state2.currentIndex);
+      await playAudioAtIndex(state2.currentIndex);
+      if (stateManager.getState().status === "paused") {
         await new Promise((resolve) => {
           const unsubscribe = onStateChange((s) => {
             if (s.status !== "paused") {
@@ -4096,80 +4357,77 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
             }
           });
         });
-        if (getState().status === "stopped") {
+        if (stateManager.getState().status === "stopped") {
           clearHighlight();
           return;
         }
       }
-      if (getState().status === "stopped") {
+      if (stateManager.getState().status === "stopped") {
         clearHighlight();
         return;
       }
-      if (!wasSkipped) {
-        state.currentIndex++;
-        notifyStateChange();
+      const currentState = stateManager.getState();
+      if (!currentState.wasSkipped) {
+        stateManager.setState({ currentIndex: currentState.currentIndex + 1 });
       }
-      wasSkipped = false;
+      stateManager.setState({ wasSkipped: false });
     }
   }
   function startPlayAll(fromIndex = 0) {
-    if (state.status === "playing") return;
-    state.status = "playing";
-    state.currentIndex = fromIndex;
-    state.totalOnPage = getExampleGroups().length;
-    notifyStateChange();
+    if (stateManager.getState().status === "playing") return;
+    stateManager.setState({
+      status: "playing",
+      currentIndex: fromIndex,
+      totalOnPage: getExampleGroups().length
+    });
     playLoop();
   }
   function pausePlayback() {
-    if (state.status !== "playing") return;
-    state.status = "paused";
+    if (stateManager.getState().status !== "playing") return;
+    stateManager.setState({ status: "paused" });
     if (currentAudio) {
       currentAudio.pause();
     }
-    notifyStateChange();
   }
   function resumePlayback() {
-    if (state.status !== "paused") return;
-    state.status = "playing";
+    if (stateManager.getState().status !== "paused") return;
+    stateManager.setState({ status: "playing" });
     if (currentAudio) {
       currentAudio.play().catch(console.error);
     }
-    notifyStateChange();
     playLoop();
   }
   function stopPlayback() {
-    state.status = "stopped";
-    state.currentIndex = 0;
+    stateManager.setState({ status: "stopped", currentIndex: 0 });
     if (currentAudio) {
       currentAudio.pause();
       currentAudio = null;
     }
     clearHighlight();
-    notifyStateChange();
   }
   function toggleLoop() {
-    state.loopEnabled = !state.loopEnabled;
-    notifyStateChange();
+    const { loopEnabled } = stateManager.getState();
+    stateManager.setState({ loopEnabled: !loopEnabled });
   }
   function toggleBookmark() {
-    const idx = state.currentIndex;
-    if (state.bookmarkedIndices.has(idx)) {
-      state.bookmarkedIndices.delete(idx);
+    const { currentIndex, bookmarkedIndices } = stateManager.getState();
+    const newBookmarks = new Set(bookmarkedIndices);
+    if (newBookmarks.has(currentIndex)) {
+      newBookmarks.delete(currentIndex);
     } else {
-      state.bookmarkedIndices.add(idx);
+      newBookmarks.add(currentIndex);
     }
+    stateManager.setState({ bookmarkedIndices: newBookmarks });
     updateBookmarkVisuals();
-    notifyStateChange();
   }
   function skipToNextBookmark() {
-    if (state.status === "idle" || state.status === "stopped") return;
-    if (state.bookmarkedIndices.size === 0) return;
-    const sortedBookmarks = Array.from(state.bookmarkedIndices).sort((a, b) => a - b);
-    const nextBookmark = sortedBookmarks.find((idx) => idx > state.currentIndex);
+    const state2 = stateManager.getState();
+    if (state2.status === "idle" || state2.status === "stopped") return;
+    if (state2.bookmarkedIndices.size === 0) return;
+    const sortedBookmarks = Array.from(state2.bookmarkedIndices).sort((a, b) => a - b);
+    const nextBookmark = sortedBookmarks.find((idx) => idx > state2.currentIndex);
     if (nextBookmark !== void 0) {
-      wasSkipped = true;
-      state.currentIndex = nextBookmark;
-      notifyStateChange();
+      stateManager.setState({ wasSkipped: true, currentIndex: nextBookmark });
       if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -4177,10 +4435,8 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
       if (skipResolve) {
         skipResolve();
       }
-    } else if (state.loopEnabled && sortedBookmarks.length > 0) {
-      wasSkipped = true;
-      state.currentIndex = sortedBookmarks[0];
-      notifyStateChange();
+    } else if (state2.loopEnabled && sortedBookmarks.length > 0) {
+      stateManager.setState({ wasSkipped: true, currentIndex: sortedBookmarks[0] });
       if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -4191,14 +4447,13 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
   }
   function skipToPrevBookmark() {
-    if (state.status === "idle" || state.status === "stopped") return;
-    if (state.bookmarkedIndices.size === 0) return;
-    const sortedBookmarks = Array.from(state.bookmarkedIndices).sort((a, b) => b - a);
-    const prevBookmark = sortedBookmarks.find((idx) => idx < state.currentIndex);
+    const state2 = stateManager.getState();
+    if (state2.status === "idle" || state2.status === "stopped") return;
+    if (state2.bookmarkedIndices.size === 0) return;
+    const sortedBookmarks = Array.from(state2.bookmarkedIndices).sort((a, b) => b - a);
+    const prevBookmark = sortedBookmarks.find((idx) => idx < state2.currentIndex);
     if (prevBookmark !== void 0) {
-      wasSkipped = true;
-      state.currentIndex = prevBookmark;
-      notifyStateChange();
+      stateManager.setState({ wasSkipped: true, currentIndex: prevBookmark });
       if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -4206,10 +4461,8 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
       if (skipResolve) {
         skipResolve();
       }
-    } else if (state.loopEnabled && sortedBookmarks.length > 0) {
-      wasSkipped = true;
-      state.currentIndex = sortedBookmarks[0];
-      notifyStateChange();
+    } else if (state2.loopEnabled && sortedBookmarks.length > 0) {
+      stateManager.setState({ wasSkipped: true, currentIndex: sortedBookmarks[0] });
       if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -4220,10 +4473,9 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
   }
   function skipToNext() {
-    if (state.status === "idle" || state.status === "stopped") return;
-    wasSkipped = true;
-    state.currentIndex++;
-    notifyStateChange();
+    const state2 = stateManager.getState();
+    if (state2.status === "idle" || state2.status === "stopped") return;
+    stateManager.setState({ wasSkipped: true, currentIndex: state2.currentIndex + 1 });
     if (currentAudio) {
       currentAudio.pause();
       currentAudio = null;
@@ -4233,12 +4485,10 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
   }
   function skipToPrevious() {
-    if (state.status === "idle" || state.status === "stopped") return;
-    wasSkipped = true;
-    if (state.currentIndex > 0) {
-      state.currentIndex--;
-    }
-    notifyStateChange();
+    const state2 = stateManager.getState();
+    if (state2.status === "idle" || state2.status === "stopped") return;
+    const newIndex = state2.currentIndex > 0 ? state2.currentIndex - 1 : 0;
+    stateManager.setState({ wasSkipped: true, currentIndex: newIndex });
     if (currentAudio) {
       currentAudio.pause();
       currentAudio = null;
@@ -4248,30 +4498,29 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
   }
   function handleKeydown(e) {
-    const target = e.target;
-    const tag = (target.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable) {
+    if (isTextInputTarget(e.target)) {
       return;
     }
+    const state2 = stateManager.getState();
     switch (e.key.toLowerCase()) {
       case " ":
         e.preventDefault();
-        if (state.status === "playing") {
+        if (state2.status === "playing") {
           pausePlayback();
-        } else if (state.status === "paused") {
+        } else if (state2.status === "paused") {
           resumePlayback();
-        } else if (state.status === "idle" || state.status === "stopped") {
+        } else if (state2.status === "idle" || state2.status === "stopped") {
           startPlayAll(0);
         }
         break;
       case "escape":
-        if (state.status !== "idle" && state.status !== "stopped") {
+        if (state2.status !== "idle" && state2.status !== "stopped") {
           e.preventDefault();
           stopPlayback();
         }
         break;
       case "arrowright":
-        if (state.status === "playing" || state.status === "paused") {
+        if (state2.status === "playing" || state2.status === "paused") {
           e.preventDefault();
           if (e.shiftKey) {
             skipToNextBookmark();
@@ -4281,7 +4530,7 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
         }
         break;
       case "arrowleft":
-        if (state.status === "playing" || state.status === "paused") {
+        if (state2.status === "playing" || state2.status === "paused") {
           e.preventDefault();
           if (e.shiftKey) {
             skipToPrevBookmark();
@@ -4295,7 +4544,7 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
         toggleLoop();
         break;
       case "b":
-        if (state.status === "playing" || state.status === "paused") {
+        if (state2.status === "playing" || state2.status === "paused") {
           e.preventDefault();
           toggleBookmark();
         }
@@ -4482,17 +4731,11 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   let lastAddedNoteId = null;
   let lastAddedAt = 0;
   let editorShortcutRegistered = false;
-  function isTextInputTarget$1(target) {
-    if (!target) return false;
-    const el = target;
-    const tag = (el.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select") return true;
-    return Boolean(el.isContentEditable);
-  }
   async function handleEditorShortcut(e) {
-    const shortcut = (CONFIG.OPEN_EDITOR_KEY || "").trim();
+    const config = getConfig();
+    const shortcut = (config.OPEN_EDITOR_KEY || "").trim();
     if (!shortcut) return;
-    if (isTextInputTarget$1(e.target)) return;
+    if (isTextInputTarget(e.target)) return;
     if (!lastAddedNoteId) return;
     if (Date.now() - lastAddedAt > LAST_ADDED_NOTE_EXPIRES_MS) return;
     const pressed = (e.key || "").trim().toLowerCase();
@@ -4834,13 +5077,6 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
     }
   }
   let yahooShortcutRegistered = false;
-  function isTextInputTarget(target) {
-    if (!target) return false;
-    const el = target;
-    const tag = (el.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea" || tag === "select") return true;
-    return Boolean(el.isContentEditable);
-  }
   function handleYahooShortcut(e) {
     if (isTextInputTarget(e.target)) return;
     const pressed = (e.key || "").trim().toLowerCase();

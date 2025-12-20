@@ -6,6 +6,7 @@
 
 import { getExampleGroups, getExampleIndexFromMenu, validatePageStructure } from './exampleGroup';
 import { hasImageAtIndex, addMediaToAnkiForIndex, addBothMediaToAnkiForIndex } from './mediaHandler';
+import { isTextInputTarget } from './utils';
 
 /**
  * Inject Anki buttons into a menu element.
@@ -57,14 +58,6 @@ export function injectMenuButtons(menuEl: Element, exampleIndex: number): void {
 }
 
 let yahooShortcutRegistered = false;
-
-function isTextInputTarget(target: EventTarget | null): boolean {
-  if (!target) return false;
-  const el = target as HTMLElement;
-  const tag = (el.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
-  return Boolean(el.isContentEditable);
-}
 
 function handleYahooShortcut(e: KeyboardEvent) {
   if (isTextInputTarget(e.target)) return;

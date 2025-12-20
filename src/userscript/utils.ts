@@ -79,3 +79,15 @@ export function waitForElement(selector: string, timeoutMs = 10000): Promise<Ele
     }, timeoutMs);
   });
 }
+
+/**
+ * Check if the event target is a text input element.
+ * Used to prevent keyboard shortcuts from firing when typing in inputs.
+ */
+export function isTextInputTarget(target: EventTarget | null): boolean {
+  if (!target) return false;
+  const el = target as HTMLElement;
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+  return Boolean(el.isContentEditable);
+}

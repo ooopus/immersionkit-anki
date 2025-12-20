@@ -1,4 +1,4 @@
-import { CONFIG } from './config';
+import { getConfig } from './config';
 import { sleep, filenameFromUrl, isHttpUrl, $all } from './utils';
 
 
@@ -123,7 +123,8 @@ export async function captureAudioUrlFromMining(triggerEl?: Element | null): Pro
 
   // 6) await capture
   const t0 = performance.now();
-  while (!captured.done && performance.now() - t0 < CONFIG.CAPTURE_TIMEOUT_MS) {
+  const { CAPTURE_TIMEOUT_MS } = getConfig();
+  while (!captured.done && performance.now() - t0 < CAPTURE_TIMEOUT_MS) {
     await sleep(40);
   }
   cleanup();

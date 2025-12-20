@@ -4,24 +4,18 @@
  * Handles editor shortcuts and the "Open" button for accessing Anki note editor.
  */
 
-import { CONFIG } from './config';
+import { getConfig } from './config';
 import { openNoteEditor } from './anki';
+import { isTextInputTarget } from './utils';
 
 const LAST_ADDED_NOTE_EXPIRES_MS = 5 * 60 * 1000;
 let lastAddedNoteId: number | null = null;
 let lastAddedAt = 0;
 let editorShortcutRegistered = false;
 
-function isTextInputTarget(target: EventTarget | null): boolean {
-  if (!target) return false;
-  const el = target as HTMLElement;
-  const tag = (el.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
-  return Boolean(el.isContentEditable);
-}
-
 async function handleEditorShortcut(e: KeyboardEvent) {
-  const shortcut = (CONFIG.OPEN_EDITOR_KEY || '').trim();
+  const config = getConfig();
+  const shortcut = (config.OPEN_EDITOR_KEY || '').trim();
   if (!shortcut) return;
 
   if (isTextInputTarget(e.target as HTMLElement | null)) return;

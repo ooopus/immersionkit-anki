@@ -1,4 +1,4 @@
-import { CONFIG } from './config';
+import { getConfig } from './config';
 import type { AnkiCardId, AnkiNoteId, AnkiNoteInfo, MediaType } from './types';
 import { GM_xmlhttpRequest } from '$';
 
@@ -13,9 +13,10 @@ function hasProp<K extends string>(obj: unknown, key: K): obj is Record<K, unkno
 }
 
 export function invokeAnkiConnect<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+  const config = getConfig();
   const payload: Record<string, unknown> = { action, version: 6, params };
-  if (CONFIG.ANKI_CONNECT_KEY) payload.key = CONFIG.ANKI_CONNECT_KEY;
-  const endpoints = [CONFIG.ANKI_CONNECT_URL, 'http://localhost:8765'];
+  if (config.ANKI_CONNECT_KEY) payload.key = config.ANKI_CONNECT_KEY;
+  const endpoints = [config.ANKI_CONNECT_URL, 'http://localhost:8765'];
 
   console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
 

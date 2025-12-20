@@ -6,46 +6,54 @@
 import { captureAudioUrlFromMining } from './miningSoundCapture';
 import { getExampleGroups } from './exampleGroup';
 import { SELECTORS, CLASSES } from './selectors';
+import { StateManager } from './state';
+import { isTextInputTarget } from './utils';
 import type { PlayAllStatus, PlayAllState } from './types';
 
 // Re-export types for consumers
 export type { PlayAllStatus, PlayAllState };
 
-const state: PlayAllState = {
+/**
+ * Internal state extends the public PlayAllState with additional fields
+ * for managing playback internals.
+ */
+interface PlayAllInternalState extends PlayAllState {
+  wasSkipped: boolean;
+}
+
+// Initialize state manager with internal state
+const stateManager = new StateManager<PlayAllInternalState>({
   status: 'idle',
   currentIndex: 0,
   totalOnPage: 0,
   loopEnabled: false,
   bookmarkedIndices: new Set<number>(),
-};
+  wasSkipped: false,
+});
 
+// Non-state runtime references (these are not part of serializable state)
 let currentAudio: HTMLAudioElement | null = null;
-let stateChangeListeners: Array<(s: PlayAllState) => void> = [];
-let shortcutRegistered = false;
-
-// Callback to resolve the current audio promise when skipping
 let skipResolve: (() => void) | null = null;
-// Flag to indicate skip was triggered (index already updated)
-let wasSkipped = false;
+let shortcutRegistered = false;
 
 // ============================================================================
 // State Helpers
 // ============================================================================
 
-function notifyStateChange() {
-  const snapshot = { ...state };
-  stateChangeListeners.forEach((fn) => fn(snapshot));
-}
-
 export function onStateChange(fn: (s: PlayAllState) => void): () => void {
-  stateChangeListeners.push(fn);
-  return () => {
-    stateChangeListeners = stateChangeListeners.filter((f) => f !== fn);
-  };
+  return stateManager.subscribe(fn);
 }
 
 export function getState(): PlayAllState {
-  return { ...state };
+  const s = stateManager.getState();
+  // Return only public state (exclude internal fields like wasSkipped)
+  return {
+    status: s.status,
+    currentIndex: s.currentIndex,
+    totalOnPage: s.totalOnPage,
+    loopEnabled: s.loopEnabled,
+    bookmarkedIndices: s.bookmarkedIndices,
+  };
 }
 
 function highlightExample(index: number) {
@@ -67,8 +75,9 @@ function highlightExample(index: number) {
 
 function updateBookmarkVisuals() {
   const groups = getExampleGroups();
+  const { bookmarkedIndices } = stateManager.getState();
   groups.forEach((group, idx) => {
-    if (state.bookmarkedIndices.has(idx)) {
+    if (bookmarkedIndices.has(idx)) {
       group.exampleDesktop.classList.add(CLASSES.BOOKMARKED);
     } else {
       group.exampleDesktop.classList.remove(CLASSES.BOOKMARKED);
@@ -197,32 +206,28 @@ async function playAudioAtIndex(index: number): Promise<boolean> {
 // ============================================================================
 
 async function playLoop() {
-  while (state.status === 'playing') {
+  while (stateManager.getState().status === 'playing') {
     const groups = getExampleGroups();
-    state.totalOnPage = groups.length;
-    notifyStateChange();
+    stateManager.setState({ totalOnPage: groups.length });
 
+    const state = stateManager.getState();
     if (state.currentIndex >= groups.length) {
       // Try to go to next page
       const hasNextPage = await goToNextPage();
       if (hasNextPage) {
-        state.currentIndex = 0;
-        notifyStateChange();
+        stateManager.setState({ currentIndex: 0 });
         continue;
       } else {
         // No more pages
         if (state.loopEnabled) {
           // Restart from beginning - need to go back to first page
           // For now, just restart current page
-          state.currentIndex = 0;
-          notifyStateChange();
+          stateManager.setState({ currentIndex: 0 });
           continue;
         } else {
           // Stop playback
-          state.status = 'stopped';
-          state.currentIndex = 0;
+          stateManager.setState({ status: 'stopped', currentIndex: 0 });
           clearHighlight();
-          notifyStateChange();
           return;
         }
       }
@@ -235,7 +240,7 @@ async function playLoop() {
     await playAudioAtIndex(state.currentIndex);
 
     // Check if paused during playback
-    if (getState().status === 'paused') {
+    if (stateManager.getState().status === 'paused') {
       // Wait until resumed or stopped
       await new Promise<void>((resolve) => {
         const unsubscribe = onStateChange((s) => {
@@ -246,23 +251,23 @@ async function playLoop() {
         });
       });
 
-      if (getState().status === 'stopped') {
+      if (stateManager.getState().status === 'stopped') {
         clearHighlight();
         return;
       }
     }
 
-    if (getState().status === 'stopped') {
+    if (stateManager.getState().status === 'stopped') {
       clearHighlight();
       return;
     }
 
     // Move to next only if not skipped (skip functions already update the index)
-    if (!wasSkipped) {
-      state.currentIndex++;
-      notifyStateChange();
+    const currentState = stateManager.getState();
+    if (!currentState.wasSkipped) {
+      stateManager.setState({ currentIndex: currentState.currentIndex + 1 });
     }
-    wasSkipped = false;
+    stateManager.setState({ wasSkipped: false });
   }
 }
 
@@ -271,53 +276,50 @@ async function playLoop() {
 // ============================================================================
 
 export function startPlayAll(fromIndex = 0) {
-  if (state.status === 'playing') return;
+  if (stateManager.getState().status === 'playing') return;
 
-  state.status = 'playing';
-  state.currentIndex = fromIndex;
-  state.totalOnPage = getExampleGroups().length;
-  notifyStateChange();
+  stateManager.setState({
+    status: 'playing',
+    currentIndex: fromIndex,
+    totalOnPage: getExampleGroups().length,
+  });
 
   playLoop();
 }
 
 export function pausePlayback() {
-  if (state.status !== 'playing') return;
+  if (stateManager.getState().status !== 'playing') return;
 
-  state.status = 'paused';
+  stateManager.setState({ status: 'paused' });
   if (currentAudio) {
     currentAudio.pause();
   }
-  notifyStateChange();
 }
 
 export function resumePlayback() {
-  if (state.status !== 'paused') return;
+  if (stateManager.getState().status !== 'paused') return;
 
-  state.status = 'playing';
+  stateManager.setState({ status: 'playing' });
   if (currentAudio) {
     currentAudio.play().catch(console.error);
   }
-  notifyStateChange();
 
   // Continue the loop
   playLoop();
 }
 
 export function stopPlayback() {
-  state.status = 'stopped';
-  state.currentIndex = 0;
+  stateManager.setState({ status: 'stopped', currentIndex: 0 });
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
   clearHighlight();
-  notifyStateChange();
 }
 
 export function toggleLoop() {
-  state.loopEnabled = !state.loopEnabled;
-  notifyStateChange();
+  const { loopEnabled } = stateManager.getState();
+  stateManager.setState({ loopEnabled: !loopEnabled });
 }
 
 // ============================================================================
@@ -325,31 +327,33 @@ export function toggleLoop() {
 // ============================================================================
 
 export function toggleBookmark() {
-  const idx = state.currentIndex;
-  if (state.bookmarkedIndices.has(idx)) {
-    state.bookmarkedIndices.delete(idx);
+  const { currentIndex, bookmarkedIndices } = stateManager.getState();
+  const newBookmarks = new Set(bookmarkedIndices);
+  if (newBookmarks.has(currentIndex)) {
+    newBookmarks.delete(currentIndex);
   } else {
-    state.bookmarkedIndices.add(idx);
+    newBookmarks.add(currentIndex);
   }
+  stateManager.setState({ bookmarkedIndices: newBookmarks });
   updateBookmarkVisuals();
-  notifyStateChange();
 }
 
 export function isCurrentBookmarked(): boolean {
-  return state.bookmarkedIndices.has(state.currentIndex);
+  const { currentIndex, bookmarkedIndices } = stateManager.getState();
+  return bookmarkedIndices.has(currentIndex);
 }
 
 export function getBookmarkCount(): number {
-  return state.bookmarkedIndices.size;
+  return stateManager.getState().bookmarkedIndices.size;
 }
 
 export function clearAllBookmarks() {
-  state.bookmarkedIndices.clear();
+  stateManager.setState({ bookmarkedIndices: new Set() });
   updateBookmarkVisuals();
-  notifyStateChange();
 }
 
 export function skipToNextBookmark() {
+  const state = stateManager.getState();
   if (state.status === 'idle' || state.status === 'stopped') return;
   if (state.bookmarkedIndices.size === 0) return;
 
@@ -357,9 +361,7 @@ export function skipToNextBookmark() {
   const nextBookmark = sortedBookmarks.find((idx) => idx > state.currentIndex);
 
   if (nextBookmark !== undefined) {
-    wasSkipped = true;
-    state.currentIndex = nextBookmark;
-    notifyStateChange();
+    stateManager.setState({ wasSkipped: true, currentIndex: nextBookmark });
 
     if (currentAudio) {
       currentAudio.pause();
@@ -370,9 +372,7 @@ export function skipToNextBookmark() {
     }
   } else if (state.loopEnabled && sortedBookmarks.length > 0) {
     // Loop to first bookmark
-    wasSkipped = true;
-    state.currentIndex = sortedBookmarks[0];
-    notifyStateChange();
+    stateManager.setState({ wasSkipped: true, currentIndex: sortedBookmarks[0] });
 
     if (currentAudio) {
       currentAudio.pause();
@@ -385,6 +385,7 @@ export function skipToNextBookmark() {
 }
 
 export function skipToPrevBookmark() {
+  const state = stateManager.getState();
   if (state.status === 'idle' || state.status === 'stopped') return;
   if (state.bookmarkedIndices.size === 0) return;
 
@@ -392,9 +393,7 @@ export function skipToPrevBookmark() {
   const prevBookmark = sortedBookmarks.find((idx) => idx < state.currentIndex);
 
   if (prevBookmark !== undefined) {
-    wasSkipped = true;
-    state.currentIndex = prevBookmark;
-    notifyStateChange();
+    stateManager.setState({ wasSkipped: true, currentIndex: prevBookmark });
 
     if (currentAudio) {
       currentAudio.pause();
@@ -405,9 +404,7 @@ export function skipToPrevBookmark() {
     }
   } else if (state.loopEnabled && sortedBookmarks.length > 0) {
     // Loop to last bookmark
-    wasSkipped = true;
-    state.currentIndex = sortedBookmarks[0]; // sortedBookmarks is reverse sorted, so [0] is highest
-    notifyStateChange();
+    stateManager.setState({ wasSkipped: true, currentIndex: sortedBookmarks[0] }); // sortedBookmarks is reverse sorted, so [0] is highest
 
     if (currentAudio) {
       currentAudio.pause();
@@ -420,14 +417,11 @@ export function skipToPrevBookmark() {
 }
 
 export function skipToNext() {
+  const state = stateManager.getState();
   if (state.status === 'idle' || state.status === 'stopped') return;
 
   // Mark as skipped so playLoop doesn't double-increment
-  wasSkipped = true;
-
-  // Update index first
-  state.currentIndex++;
-  notifyStateChange();
+  stateManager.setState({ wasSkipped: true, currentIndex: state.currentIndex + 1 });
 
   // Stop current audio and trigger skip
   if (currentAudio) {
@@ -442,16 +436,12 @@ export function skipToNext() {
 }
 
 export function skipToPrevious() {
+  const state = stateManager.getState();
   if (state.status === 'idle' || state.status === 'stopped') return;
 
   // Mark as skipped so playLoop doesn't double-increment
-  wasSkipped = true;
-
-  // Update index first
-  if (state.currentIndex > 0) {
-    state.currentIndex--;
-  }
-  notifyStateChange();
+  const newIndex = state.currentIndex > 0 ? state.currentIndex - 1 : 0;
+  stateManager.setState({ wasSkipped: true, currentIndex: newIndex });
 
   // Stop current audio and trigger skip
   if (currentAudio) {
@@ -471,11 +461,11 @@ export function skipToPrevious() {
 
 function handleKeydown(e: KeyboardEvent) {
   // Ignore if typing in an input
-  const target = e.target as HTMLElement;
-  const tag = (target.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) {
+  if (isTextInputTarget(e.target)) {
     return;
   }
+
+  const state = stateManager.getState();
 
   switch (e.key.toLowerCase()) {
     case ' ': // Space - play/pause

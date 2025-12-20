@@ -1,27 +1,4 @@
 // ============================================================================
-// ImmersionKit Types
-// ============================================================================
-
-export interface ImmersionKitExample {
-  id: string;
-  title: string;
-  image?: string;
-  sound?: string;
-  media?: string;
-}
-
-export interface ImmersionKitSearchResponse {
-  examples: ImmersionKitExample[];
-}
-
-export interface ImmersionKitSearchOptions {
-  exactMatch?: boolean;
-  limit?: number;
-  sort?: string;
-  index?: string;
-}
-
-// ============================================================================
 // Anki Types
 // ============================================================================
 

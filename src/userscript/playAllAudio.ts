@@ -74,11 +74,6 @@ function highlightExample(index: number) {
     }
   });
 
-  // Also handle the mining segment - find and animate the sibling segment
-  document.querySelectorAll(`.${CLASSES.HIGHLIGHT_SEGMENT}`).forEach((el) => {
-    el.classList.remove(CLASSES.HIGHLIGHT_SEGMENT);
-  });
-
   // Also clean up any existing leaving elements that might conflict
   document.querySelectorAll(`.${CLASSES.LEAVING}`).forEach((el) => {
     if (el === group.exampleDesktop) {
@@ -88,16 +83,6 @@ function highlightExample(index: number) {
 
   // Add highlight to desktop example with enter animation
   group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
-
-  // Find and highlight the following mining segment (ui segment active tab)
-  // It's typically a sibling element after the example item
-  const miningSpan = group.exampleDesktop.nextElementSibling;
-  if (miningSpan) {
-    const miningSegment = miningSpan.querySelector('div.ui.segment.active.tab');
-    if (miningSegment) {
-      miningSegment.classList.add(CLASSES.HIGHLIGHT_SEGMENT);
-    }
-  }
 
   // Scroll into view
   group.exampleDesktop.scrollIntoView({ behavior: 'smooth', block: 'center' });

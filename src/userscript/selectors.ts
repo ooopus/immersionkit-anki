@@ -47,7 +47,6 @@ export const SELECTORS = {
 /** CSS classes used by this userscript */
 export const CLASSES = {
   HIGHLIGHT: 'anki-playall-highlight',
-  HIGHLIGHT_SEGMENT: 'anki-playall-highlight-segment',
   LEAVING: 'anki-playall-leaving',
   BOOKMARKED: 'anki-playall-bookmarked',
   FEEDBACK_PENDING: 'anki-feedback-pending',

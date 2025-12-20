@@ -199,6 +199,53 @@ function updateBarUI(state: PlayAllState) {
   if (countSpan) countSpan.textContent = String(state.bookmarkedIndices.size);
 }
 
+// Track previous index for detecting changes
+let previousIndex = -1;
+
+function showTransitionIndicator(current: number, total: number) {
+  // Remove any existing indicator
+  const existing = document.getElementById('anki-playall-indicator');
+  if (existing) existing.remove();
+
+  // Create the indicator
+  const indicator = document.createElement('div');
+  indicator.id = 'anki-playall-indicator';
+  indicator.className = 'anki-playall-transition-indicator';
+  indicator.innerHTML = `<span class="number">${current}</span><span class="separator">/</span><span class="total">${total}</span>`;
+  document.body.appendChild(indicator);
+
+  // Remove after animation
+  setTimeout(() => {
+    indicator.remove();
+  }, 800);
+}
+
+function updateBarUIWithIndicator(state: PlayAllState) {
+  // Show transition indicator when index changes during playback
+  if (
+    (state.status === 'playing' || state.status === 'paused') &&
+    previousIndex !== -1 &&
+    previousIndex !== state.currentIndex
+  ) {
+    showTransitionIndicator(state.currentIndex + 1, state.totalOnPage);
+
+    // Also flash the progress element
+    if (barElement) {
+      const progress = barElement.querySelector('.anki-playall-progress');
+      if (progress) {
+        progress.classList.remove('flash');
+        // Force reflow to restart animation
+        void (progress as HTMLElement).offsetWidth;
+        progress.classList.add('flash');
+      }
+    }
+  }
+  previousIndex = state.currentIndex;
+
+  // Call the original update function
+  updateBarUI(state);
+}
+
 export function injectPlayAllBar() {
   // Don't inject if already exists
   if (document.getElementById('anki-playall-bar')) return;
@@ -210,8 +257,8 @@ export function injectPlayAllBar() {
   barElement = createControlBar();
   container.parentElement.insertBefore(barElement, container);
 
-  // Subscribe to state changes
-  unsubscribe = onStateChange(updateBarUI);
+  // Subscribe to state changes (with transition indicator)
+  unsubscribe = onStateChange(updateBarUIWithIndicator);
 
   // Initialize with current state
   updateBarUI(getState());

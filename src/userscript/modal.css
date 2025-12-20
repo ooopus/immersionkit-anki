@@ -212,6 +212,101 @@
     color: #fff;
 }
 
+/* 进度条切换闪烁效果 */
+.anki-playall-progress.flash {
+    animation: anki-progress-flash 0.5s ease-out;
+}
+
+.anki-playall-progress.flash .current {
+    animation: anki-number-pulse 0.5s ease-out;
+}
+
+@keyframes anki-progress-flash {
+    0% {
+        background: rgba(255, 152, 0, 0.8);
+        transform: scale(1.3);
+        border-radius: 8px;
+    }
+
+    100% {
+        background: transparent;
+        transform: scale(1);
+    }
+}
+
+@keyframes anki-number-pulse {
+    0% {
+        color: #ff9800;
+        text-shadow: 0 0 20px rgba(255, 152, 0, 1);
+    }
+
+    100% {
+        color: #fff;
+        text-shadow: none;
+    }
+}
+
+/* ============================================================================
+   Transition Indicator - 切换时屏幕中央的大数字指示器
+   ============================================================================ */
+
+.anki-playall-transition-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    z-index: 100000;
+    font-size: 72px;
+    font-weight: 700;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.75);
+    padding: 20px 40px;
+    border-radius: 20px;
+    box-shadow: 0 10px 60px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    animation: anki-indicator-pop 0.8s ease-out forwards;
+}
+
+.anki-playall-transition-indicator .number {
+    color: #4caf50;
+    text-shadow: 0 0 30px rgba(76, 175, 80, 0.8);
+}
+
+.anki-playall-transition-indicator .separator {
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 8px;
+}
+
+.anki-playall-transition-indicator .total {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+@keyframes anki-indicator-pop {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+    }
+
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    40% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    80% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+    }
+}
+
 .anki-playall-shortcuts {
     color: rgba(255, 255, 255, 0.6);
     font-size: 11px;
@@ -346,46 +441,6 @@
     50% {
         opacity: 1;
         box-shadow: 0 0 25px rgba(33, 150, 243, 0.6), inset 0 0 12px rgba(33, 150, 243, 0.15);
-    }
-}
-
-/* ============================================================================
-   Mining Segment Highlight - 让 Mining 面板也有高亮效果，便于追踪切换
-   ============================================================================ */
-
-.anki-playall-highlight-segment {
-    animation: anki-segment-enter 0.5s ease-out, anki-segment-pulse 1.5s ease-in-out 0.5s infinite;
-    border-color: #ff9800 !important;
-    box-shadow: 0 0 20px rgba(255, 152, 0, 0.4), inset 0 0 10px rgba(255, 152, 0, 0.1) !important;
-}
-
-@keyframes anki-segment-enter {
-    0% {
-        transform: scale(0.98);
-        opacity: 0.7;
-        box-shadow: 0 0 40px rgba(255, 152, 0, 0.8), inset 0 0 20px rgba(255, 152, 0, 0.3);
-    }
-
-    50% {
-        transform: scale(1.01);
-        opacity: 1;
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-@keyframes anki-segment-pulse {
-
-    0%,
-    100% {
-        box-shadow: 0 0 15px rgba(255, 152, 0, 0.3), inset 0 0 8px rgba(255, 152, 0, 0.1);
-    }
-
-    50% {
-        box-shadow: 0 0 25px rgba(255, 152, 0, 0.5), inset 0 0 12px rgba(255, 152, 0, 0.15);
     }
 }
 

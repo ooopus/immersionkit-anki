@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.10
+// @version      1.1.11
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -4183,7 +4183,6 @@ NEXT_PAGE: [
       "a.icon.item:has(i.right.chevron.icon)",
       ".ui.pagination.menu a.icon.item:last-child:not(.disabled)"
     ],
-    ACTIVE_SEGMENT: "div.ui.segment.active.tab, div.ui.tab.segment.active, div.ui.segment.active",
 PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   };
   const CLASSES = {
@@ -4298,8 +4297,10 @@ notifyListeners() {
     const groups = getExampleGroups();
     const group = groups[index];
     if (!group) return;
-    document.querySelectorAll(SELECTORS.ACTIVE_SEGMENT).forEach((el) => {
-      el.classList.remove("active");
+    document.querySelectorAll(".item a.active.item").forEach((activeTab) => {
+      if (activeTab.textContent?.includes("Mining")) {
+        activeTab.click();
+      }
     });
     document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
       el.classList.remove(CLASSES.HIGHLIGHT);

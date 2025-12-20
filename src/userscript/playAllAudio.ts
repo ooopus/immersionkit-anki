@@ -61,9 +61,12 @@ function highlightExample(index: number) {
   const group = groups[index];
   if (!group) return;
 
-  // Collapse any open active segments/tabs to avoid blocking the view
-  document.querySelectorAll(SELECTORS.ACTIVE_SEGMENT).forEach((el) => {
-    el.classList.remove('active');
+  // Collapse any open Mining tabs to make both previous and current items visible
+  document.querySelectorAll('.item a.active.item').forEach((activeTab) => {
+    // Check if this is a Mining tab by looking for the text content
+    if (activeTab.textContent?.includes('Mining')) {
+      (activeTab as HTMLElement).click();
+    }
   });
 
   // Move previous highlight to "leaving" state for fade-out animation

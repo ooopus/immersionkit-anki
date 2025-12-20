@@ -61,30 +61,22 @@ function highlightExample(index: number) {
   const group = groups[index];
   if (!group) return;
 
-  // Move previous highlight to "leaving" state for fade-out animation
+  // Remove previous highlight from all elements
   document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
     el.classList.remove(CLASSES.HIGHLIGHT);
-    // Only add leaving class if it's a different element
-    if (el !== group.exampleDesktop) {
-      el.classList.add(CLASSES.LEAVING);
-      // Clean up leaving class after animation completes
-      setTimeout(() => {
-        el.classList.remove(CLASSES.LEAVING);
-      }, 800);
-    }
   });
 
-  // Also clean up any existing leaving elements that might conflict
+  // Remove any leftover leaving classes
   document.querySelectorAll(`.${CLASSES.LEAVING}`).forEach((el) => {
-    if (el === group.exampleDesktop) {
-      el.classList.remove(CLASSES.LEAVING);
-    }
+    el.classList.remove(CLASSES.LEAVING);
   });
 
-  // Add highlight to desktop example with enter animation
+  // Add highlight to both exampleDesktop AND buttonSpanDesktop for full visibility
+  // This ensures the Mining tab area also flashes
   group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
+  group.buttonSpanDesktop.classList.add(CLASSES.HIGHLIGHT);
 
-  // Scroll into view
+  // Scroll into view - scroll to exampleDesktop for better positioning
   group.exampleDesktop.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 

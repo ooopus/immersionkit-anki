@@ -232,129 +232,82 @@
    Example Highlight Animation
    ============================================================================ */
 
-/* 当前播放项 - 醒目的进入动画 */
+/* 当前播放项 - 非常醒目的闪烁进入动画 */
 .anki-playall-highlight {
     position: relative;
-    animation: anki-playall-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1), anki-playall-pulse 1.5s ease-in-out 0.5s infinite;
+    animation: anki-playall-flash 0.6s ease-out, anki-playall-pulse 1.5s ease-in-out 0.6s infinite;
     z-index: 5;
-    scroll-margin-top: 120px;
 }
 
 .anki-playall-highlight::before {
     content: '';
     position: absolute;
-    inset: -8px;
-    border: 4px solid #2196f3;
-    border-radius: 12px;
+    inset: -6px;
+    border: 3px solid #2196f3;
+    border-radius: 10px;
     pointer-events: none;
-    box-shadow: 0 0 30px rgba(33, 150, 243, 0.6), 0 0 60px rgba(33, 150, 243, 0.3), inset 0 0 15px rgba(33, 150, 243, 0.15);
-    animation: anki-playall-border-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1), anki-playall-border-pulse 1.5s ease-in-out 0.5s infinite;
+    box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);
+    animation: anki-playall-border-flash 0.6s ease-out, anki-playall-border-pulse 1.5s ease-in-out 0.6s infinite;
 }
 
-/* 进入时的闪光效果 */
-.anki-playall-highlight::after {
-    content: '';
-    position: absolute;
-    inset: -12px;
-    border-radius: 14px;
-    pointer-events: none;
-    background: linear-gradient(45deg, transparent 40%, rgba(255, 255, 255, 0.3) 50%, transparent 60%);
-    background-size: 200% 200%;
-    animation: anki-playall-shine 0.6s ease-out;
-}
-
-/* 上一个播放项 - 淡出效果 */
-.anki-playall-leaving {
-    position: relative;
-    animation: anki-playall-leave 0.6s ease-out forwards;
-}
-
-.anki-playall-leaving::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border: 2px solid #90caf9;
-    border-radius: 8px;
-    pointer-events: none;
-    animation: anki-playall-border-leave 0.6s ease-out forwards;
-}
-
-/* 进入动画 - 从略微上方滑入 + 缩放 + 强烈闪烁 */
-@keyframes anki-playall-enter {
+/* 进入动画 - 明显的多次闪烁 */
+@keyframes anki-playall-flash {
     0% {
-        transform: translateY(-8px) scale(0.96);
-        background-color: rgba(33, 150, 243, 0.5);
-        opacity: 0.7;
+        background-color: rgba(255, 193, 7, 0.5);
+        transform: scale(1.02);
     }
 
-    40% {
-        transform: translateY(2px) scale(1.02);
-        background-color: rgba(33, 150, 243, 0.35);
-        opacity: 1;
-    }
-
-    70% {
-        transform: translateY(-1px) scale(1.005);
-        background-color: rgba(33, 150, 243, 0.2);
-    }
-
-    100% {
-        transform: translateY(0) scale(1);
-        background-color: rgba(33, 150, 243, 0.08);
-    }
-}
-
-@keyframes anki-playall-border-enter {
-    0% {
-        opacity: 0;
-        transform: scale(0.92);
-        box-shadow: 0 0 50px rgba(33, 150, 243, 1), 0 0 100px rgba(33, 150, 243, 0.6);
-    }
-
-    40% {
-        opacity: 1;
-        transform: scale(1.03);
-        box-shadow: 0 0 40px rgba(33, 150, 243, 0.9), 0 0 80px rgba(33, 150, 243, 0.5);
-    }
-
-    100% {
-        opacity: 1;
+    20% {
+        background-color: rgba(33, 150, 243, 0.4);
         transform: scale(1);
-        box-shadow: 0 0 30px rgba(33, 150, 243, 0.6), 0 0 60px rgba(33, 150, 243, 0.3);
+    }
+
+    40% {
+        background-color: rgba(255, 193, 7, 0.35);
+        transform: scale(1.01);
+    }
+
+    60% {
+        background-color: rgba(33, 150, 243, 0.25);
+        transform: scale(1);
+    }
+
+    80% {
+        background-color: rgba(255, 193, 7, 0.15);
+    }
+
+    100% {
+        background-color: rgba(33, 150, 243, 0.08);
+        transform: scale(1);
     }
 }
 
-/* 闪光扫过效果 */
-@keyframes anki-playall-shine {
+@keyframes anki-playall-border-flash {
     0% {
-        background-position: 200% 200%;
         opacity: 1;
+        box-shadow: 0 0 40px rgba(255, 193, 7, 0.8), inset 0 0 20px rgba(255, 193, 7, 0.3);
+        border-color: #ffc107;
+    }
+
+    25% {
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.7), inset 0 0 15px rgba(33, 150, 243, 0.2);
+        border-color: #2196f3;
+    }
+
+    50% {
+        box-shadow: 0 0 35px rgba(255, 193, 7, 0.6), inset 0 0 18px rgba(255, 193, 7, 0.25);
+        border-color: #ffc107;
+    }
+
+    75% {
+        box-shadow: 0 0 25px rgba(33, 150, 243, 0.5), inset 0 0 12px rgba(33, 150, 243, 0.15);
+        border-color: #2196f3;
     }
 
     100% {
-        background-position: -200% -200%;
-        opacity: 0;
-    }
-}
-
-/* 离开动画 - 淡化 */
-@keyframes anki-playall-leave {
-    0% {
-        background-color: rgba(144, 202, 249, 0.15);
-    }
-
-    100% {
-        background-color: transparent;
-    }
-}
-
-@keyframes anki-playall-border-leave {
-    0% {
-        opacity: 0.6;
-    }
-
-    100% {
-        opacity: 0;
+        opacity: 1;
+        box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);
+        border-color: #2196f3;
     }
 }
 
@@ -376,12 +329,12 @@
     0%,
     100% {
         opacity: 0.7;
-        box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);
+        box-shadow: 0 0 15px rgba(33, 150, 243, 0.4), inset 0 0 8px rgba(33, 150, 243, 0.1);
     }
 
     50% {
         opacity: 1;
-        box-shadow: 0 0 35px rgba(33, 150, 243, 0.7), inset 0 0 15px rgba(33, 150, 243, 0.2);
+        box-shadow: 0 0 25px rgba(33, 150, 243, 0.6), inset 0 0 12px rgba(33, 150, 243, 0.15);
     }
 }
 

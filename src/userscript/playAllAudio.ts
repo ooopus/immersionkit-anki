@@ -61,11 +61,15 @@ function highlightExample(index: number) {
   const group = groups[index];
   if (!group) return;
 
-  // Collapse any open Mining tabs to make both previous and current items visible
-  document.querySelectorAll('.item a.active.item').forEach((activeTab) => {
-    // Check if this is a Mining tab by looking for the text content
-    if (activeTab.textContent?.includes('Mining')) {
-      (activeTab as HTMLElement).click();
+  // Collapse any open active segments (Mining tabs) to improve visibility
+  document.querySelectorAll(SELECTORS.ACTIVE_SEGMENT).forEach((segment) => {
+    // Find the button that toggles this segment and click it to close
+    const item = segment.closest('.item');
+    if (item && item !== group.exampleDesktop) {
+      // Remove the active class directly for a cleaner transition
+      segment.classList.remove('active');
+      const tabStyle = segment as HTMLElement;
+      tabStyle.style.display = 'none';
     }
   });
 
@@ -92,8 +96,10 @@ function highlightExample(index: number) {
   // Add highlight to desktop example with enter animation
   group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
 
-  // Scroll into view
-  group.exampleDesktop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Delay scroll slightly to let user see the transition
+  setTimeout(() => {
+    group.exampleDesktop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
 }
 
 function updateBookmarkVisuals() {

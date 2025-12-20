@@ -262,10 +262,10 @@
    Example Highlight Animation\r
    ============================================================================ */\r
 \r
-/* 当前播放项 - 非常醒目的闪烁进入动画 */\r
+/* 当前播放项 - 醒目的进入动画 */\r
 .anki-playall-highlight {\r
     position: relative;\r
-    animation: anki-playall-flash 0.6s ease-out, anki-playall-pulse 1.5s ease-in-out 0.6s infinite;\r
+    animation: anki-playall-enter 0.4s ease-out, anki-playall-pulse 1.5s ease-in-out 0.4s infinite;\r
     z-index: 5;\r
 }\r
 \r
@@ -277,67 +277,78 @@
     border-radius: 10px;\r
     pointer-events: none;\r
     box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);\r
-    animation: anki-playall-border-flash 0.6s ease-out, anki-playall-border-pulse 1.5s ease-in-out 0.6s infinite;\r
+    animation: anki-playall-border-enter 0.4s ease-out, anki-playall-border-pulse 1.5s ease-in-out 0.4s infinite;\r
 }\r
 \r
-/* 进入动画 - 明显的多次闪烁 */\r
-@keyframes anki-playall-flash {\r
-    0% {\r
-        background-color: rgba(255, 193, 7, 0.5);\r
-        transform: scale(1.02);\r
-    }\r
-\r
-    20% {\r
-        background-color: rgba(33, 150, 243, 0.4);\r
-        transform: scale(1);\r
-    }\r
-\r
-    40% {\r
-        background-color: rgba(255, 193, 7, 0.35);\r
-        transform: scale(1.01);\r
-    }\r
-\r
-    60% {\r
-        background-color: rgba(33, 150, 243, 0.25);\r
-        transform: scale(1);\r
-    }\r
-\r
-    80% {\r
-        background-color: rgba(255, 193, 7, 0.15);\r
-    }\r
-\r
-    100% {\r
-        background-color: rgba(33, 150, 243, 0.08);\r
-        transform: scale(1);\r
-    }\r
+/* 上一个播放项 - 淡出效果，保持短暂可见 */\r
+.anki-playall-leaving {\r
+    position: relative;\r
+    animation: anki-playall-leave 0.8s ease-out forwards;\r
 }\r
 \r
-@keyframes anki-playall-border-flash {\r
-    0% {\r
-        opacity: 1;\r
-        box-shadow: 0 0 40px rgba(255, 193, 7, 0.8), inset 0 0 20px rgba(255, 193, 7, 0.3);\r
-        border-color: #ffc107;\r
-    }\r
+.anki-playall-leaving::before {\r
+    content: '';\r
+    position: absolute;\r
+    inset: -4px;\r
+    border: 2px solid #90caf9;\r
+    border-radius: 8px;\r
+    pointer-events: none;\r
+    animation: anki-playall-border-leave 0.8s ease-out forwards;\r
+}\r
 \r
-    25% {\r
-        box-shadow: 0 0 30px rgba(33, 150, 243, 0.7), inset 0 0 15px rgba(33, 150, 243, 0.2);\r
-        border-color: #2196f3;\r
+/* 进入动画 - 缩放+闪烁 */\r
+@keyframes anki-playall-enter {\r
+    0% {\r
+        transform: scale(0.98);\r
+        background-color: rgba(33, 150, 243, 0.3);\r
     }\r
 \r
     50% {\r
-        box-shadow: 0 0 35px rgba(255, 193, 7, 0.6), inset 0 0 18px rgba(255, 193, 7, 0.25);\r
-        border-color: #ffc107;\r
+        transform: scale(1.01);\r
+        background-color: rgba(33, 150, 243, 0.25);\r
     }\r
 \r
-    75% {\r
-        box-shadow: 0 0 25px rgba(33, 150, 243, 0.5), inset 0 0 12px rgba(33, 150, 243, 0.15);\r
-        border-color: #2196f3;\r
+    100% {\r
+        transform: scale(1);\r
+        background-color: rgba(33, 150, 243, 0.08);\r
+    }\r
+}\r
+\r
+@keyframes anki-playall-border-enter {\r
+    0% {\r
+        opacity: 0;\r
+        transform: scale(0.95);\r
+    }\r
+\r
+    50% {\r
+        opacity: 1;\r
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.8), inset 0 0 15px rgba(33, 150, 243, 0.2);\r
     }\r
 \r
     100% {\r
         opacity: 1;\r
-        box-shadow: 0 0 20px rgba(33, 150, 243, 0.5), inset 0 0 10px rgba(33, 150, 243, 0.1);\r
-        border-color: #2196f3;\r
+        transform: scale(1);\r
+    }\r
+}\r
+\r
+/* 离开动画 - 淡化 */\r
+@keyframes anki-playall-leave {\r
+    0% {\r
+        background-color: rgba(144, 202, 249, 0.15);\r
+    }\r
+\r
+    100% {\r
+        background-color: transparent;\r
+    }\r
+}\r
+\r
+@keyframes anki-playall-border-leave {\r
+    0% {\r
+        opacity: 0.6;\r
+    }\r
+\r
+    100% {\r
+        opacity: 0;\r
     }\r
 }\r
 \r
@@ -365,6 +376,46 @@
     50% {\r
         opacity: 1;\r
         box-shadow: 0 0 25px rgba(33, 150, 243, 0.6), inset 0 0 12px rgba(33, 150, 243, 0.15);\r
+    }\r
+}\r
+\r
+/* ============================================================================\r
+   Mining Segment Highlight - 让 Mining 面板也有高亮效果，便于追踪切换\r
+   ============================================================================ */\r
+\r
+.anki-playall-highlight-segment {\r
+    animation: anki-segment-enter 0.5s ease-out, anki-segment-pulse 1.5s ease-in-out 0.5s infinite;\r
+    border-color: #ff9800 !important;\r
+    box-shadow: 0 0 20px rgba(255, 152, 0, 0.4), inset 0 0 10px rgba(255, 152, 0, 0.1) !important;\r
+}\r
+\r
+@keyframes anki-segment-enter {\r
+    0% {\r
+        transform: scale(0.98);\r
+        opacity: 0.7;\r
+        box-shadow: 0 0 40px rgba(255, 152, 0, 0.8), inset 0 0 20px rgba(255, 152, 0, 0.3);\r
+    }\r
+\r
+    50% {\r
+        transform: scale(1.01);\r
+        opacity: 1;\r
+    }\r
+\r
+    100% {\r
+        transform: scale(1);\r
+        opacity: 1;\r
+    }\r
+}\r
+\r
+@keyframes anki-segment-pulse {\r
+\r
+    0%,\r
+    100% {\r
+        box-shadow: 0 0 15px rgba(255, 152, 0, 0.3), inset 0 0 8px rgba(255, 152, 0, 0.1);\r
+    }\r
+\r
+    50% {\r
+        box-shadow: 0 0 25px rgba(255, 152, 0, 0.5), inset 0 0 12px rgba(255, 152, 0, 0.15);\r
     }\r
 }\r
 \r
@@ -4188,6 +4239,7 @@ PLAYALL_HIGHLIGHT: ".anki-playall-highlight"
   };
   const CLASSES = {
     HIGHLIGHT: "anki-playall-highlight",
+    HIGHLIGHT_SEGMENT: "anki-playall-highlight-segment",
     LEAVING: "anki-playall-leaving",
     BOOKMARKED: "anki-playall-bookmarked"
   };
@@ -4300,12 +4352,29 @@ notifyListeners() {
     if (!group) return;
     document.querySelectorAll(SELECTORS.PLAYALL_HIGHLIGHT).forEach((el) => {
       el.classList.remove(CLASSES.HIGHLIGHT);
+      if (el !== group.exampleDesktop) {
+        el.classList.add(CLASSES.LEAVING);
+        setTimeout(() => {
+          el.classList.remove(CLASSES.LEAVING);
+        }, 800);
+      }
+    });
+    document.querySelectorAll(`.${CLASSES.HIGHLIGHT_SEGMENT}`).forEach((el) => {
+      el.classList.remove(CLASSES.HIGHLIGHT_SEGMENT);
     });
     document.querySelectorAll(`.${CLASSES.LEAVING}`).forEach((el) => {
-      el.classList.remove(CLASSES.LEAVING);
+      if (el === group.exampleDesktop) {
+        el.classList.remove(CLASSES.LEAVING);
+      }
     });
     group.exampleDesktop.classList.add(CLASSES.HIGHLIGHT);
-    group.buttonSpanDesktop.classList.add(CLASSES.HIGHLIGHT);
+    const miningSpan = group.exampleDesktop.nextElementSibling;
+    if (miningSpan) {
+      const miningSegment = miningSpan.querySelector("div.ui.segment.active.tab");
+      if (miningSegment) {
+        miningSegment.classList.add(CLASSES.HIGHLIGHT_SEGMENT);
+      }
+    }
     group.exampleDesktop.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   function updateBookmarkVisuals() {

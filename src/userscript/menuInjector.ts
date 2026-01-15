@@ -80,17 +80,25 @@ function registerYahooShortcut() {
 
 /**
  * Inject Yahoo search button next to the search box.
+ * Updates the href if button already exists to reflect the current keyword.
  */
 export function injectYahooSearchButton(): void {
   // Register keyboard shortcut
   registerYahooShortcut();
-  // Check if already injected
-  if (document.querySelector('[data-anki="yahoo-search"]')) return;
 
   // Get keyword from URL
   const url = new URL(window.location.href);
   const keyword = url.searchParams.get('keyword');
   if (!keyword) return;
+
+  const yahooHref = `https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`;
+
+  // If button already exists, update its href and return
+  const existingBtn = document.querySelector<HTMLAnchorElement>('[data-anki="yahoo-search"]');
+  if (existingBtn) {
+    existingBtn.href = yahooHref;
+    return;
+  }
 
   // Find the search input container
   const searchContainer = document.querySelector('.ui.fluid.right.action.left.icon.right.labeled.input.icon');
@@ -99,7 +107,7 @@ export function injectYahooSearchButton(): void {
   // Create Yahoo search button
   const yahooBtn = document.createElement('a');
   yahooBtn.className = 'ui basic button';
-  yahooBtn.href = `https://news.yahoo.co.jp/search?p=${encodeURIComponent(keyword)}&ei=utf-8`;
+  yahooBtn.href = yahooHref;
   yahooBtn.target = '_blank';
   yahooBtn.rel = 'noopener noreferrer';
   yahooBtn.dataset.anki = 'yahoo-search';

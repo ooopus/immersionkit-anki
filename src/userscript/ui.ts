@@ -26,6 +26,10 @@ function init() {
   waitForElement(SELECTORS.EXAMPLES_CONTAINER).then(() => {
     insertAnkiButtons();
     injectPlayAllBar();
+  });
+
+  // Yahoo button waits for search container (works even on "No results" pages)
+  waitForElement(SELECTORS.SEARCH_CONTAINER).then(() => {
     injectYahooSearchButton();
   });
 }

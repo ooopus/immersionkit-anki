@@ -4190,6 +4190,7 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
   const SELECTORS = {
 EXAMPLES_CONTAINER: ".ui.divided.items",
 SECONDARY_MENU: ".ui.secondary.menu",
+SEARCH_CONTAINER: ".ui.fluid.right.action.left.icon.right.labeled.input.icon",
 NEXT_PAGE: [
       'a.icon.item[aria-label="Next item"]',
       "a.icon.item:has(i.right.chevron.icon)",
@@ -5286,6 +5287,8 @@ notifyListeners() {
     waitForElement(SELECTORS.EXAMPLES_CONTAINER).then(() => {
       insertAnkiButtons();
       injectPlayAllBar();
+    });
+    waitForElement(SELECTORS.SEARCH_CONTAINER).then(() => {
       injectYahooSearchButton();
     });
   }

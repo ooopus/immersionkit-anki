@@ -4,6 +4,8 @@ import { GM_xmlhttpRequest } from '$';
 
 type AnkiConnectResult<T> = { result: T; error: string | null };
 
+let shouldUseBrowserEditor: boolean = false;
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -196,6 +198,41 @@ export async function getSelectedNoteIds(): Promise<AnkiNoteId[]> {
   return result;
 }
 
+function shouldFallbackToBrowserEditor(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const message: string = error.message.toLowerCase();
+  return (
+    message.includes('unsupported action') ||
+    (message.includes('ui_dialog') && message.includes('buttonbox'))
+  );
+}
+
+async function openNoteInBrowser(noteId: AnkiNoteId): Promise<void> {
+  await invokeAnkiConnect<AnkiCardId[]>('guiBrowse', { query: `nid:${noteId}` });
+}
+
+/**
+ * Open a note for editing in Anki.
+ *
+ * Falls back to Anki's browser editor when guiEditNote is unavailable or
+ * incompatible with the installed Anki version.
+ *
+ * @param noteId - Identifier of the note to edit.
+ * @returns A promise that resolves after AnkiConnect opens an editor.
+ */
 export async function openNoteEditor(noteId: AnkiNoteId): Promise<void> {
-  await invokeAnkiConnect<null>('guiEditNote', { note: noteId });
+  if (!shouldUseBrowserEditor) {
+    try {
+      await invokeAnkiConnect<null>('guiEditNote', { note: noteId });
+      return;
+    } catch (error) {
+      if (!shouldFallbackToBrowserEditor(error)) throw error;
+
+      shouldUseBrowserEditor = true;
+      console.warn('[AnkiConnect] guiEditNote 与当前 Anki/AnkiConnect 不兼容，改用浏览器编辑器');
+    }
+  }
+
+  await openNoteInBrowser(noteId);
 }

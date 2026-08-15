@@ -3660,6 +3660,7 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
     _GM_setValue?.("targetNoteMode", s.targetNoteMode === "selected" ? "selected" : "recent");
     _GM_setValue?.("openEditorKey", openEditorKey);
   }
+  let shouldUseBrowserEditor = false;
   function isObject(value) {
     return typeof value === "object" && value !== null;
   }
@@ -3819,8 +3820,26 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
     console.log(`[AnkiConnect] 选中笔记数量: ${result.length}`, result);
     return result;
   }
+  function shouldFallbackToBrowserEditor(error) {
+    if (!(error instanceof Error)) return false;
+    const message = error.message.toLowerCase();
+    return message.includes("unsupported action") || message.includes("ui_dialog") && message.includes("buttonbox");
+  }
+  async function openNoteInBrowser(noteId) {
+    await invokeAnkiConnect("guiBrowse", { query: `nid:${noteId}` });
+  }
   async function openNoteEditor(noteId) {
-    await invokeAnkiConnect("guiEditNote", { note: noteId });
+    if (!shouldUseBrowserEditor) {
+      try {
+        await invokeAnkiConnect("guiEditNote", { note: noteId });
+        return;
+      } catch (error) {
+        if (!shouldFallbackToBrowserEditor(error)) throw error;
+        shouldUseBrowserEditor = true;
+        console.warn("[AnkiConnect] guiEditNote 与当前 Anki/AnkiConnect 不兼容，改用浏览器编辑器");
+      }
+    }
+    await openNoteInBrowser(noteId);
   }
   var $$_import_CONFIG = reactive_import(() => CONFIG);
   var root_1 = from_html(`<div class="alert error svelte-ny9p3g"> </div>`);

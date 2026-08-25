@@ -4,9 +4,12 @@ import { GM_xmlhttpRequest } from '$';
 
 type AnkiConnectResult<T> = { result: T; error: string | null };
 
-const CONNECTION_RETRY_DELAYS_MS: readonly number[] = [250, 750];
+const CONNECTION_RETRY_DELAYS_MS: readonly number[] = [250, 750, 1500, 3000];
+const MIN_REQUEST_INTERVAL_MS: number = 150;
 
 let shouldUseBrowserEditor: boolean = false;
+let requestQueue: Promise<void> = Promise.resolve();
+let lastRequestCompletedAt: number = 0;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -16,7 +19,11 @@ function hasProp<K extends string>(obj: unknown, key: K): obj is Record<K, unkno
   return isObject(obj) && key in obj;
 }
 
-export function invokeAnkiConnect<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, delayMs));
+}
+
+function sendAnkiConnectRequest<T>(action: string, params: Record<string, unknown>): Promise<T> {
   const config = getConfig();
   const payload: Record<string, unknown> = { action, version: 6, params };
   if (config.ANKI_CONNECT_KEY) payload.key = config.ANKI_CONNECT_KEY;
@@ -99,6 +106,30 @@ export function invokeAnkiConnect<T = unknown>(action: string, params: Record<st
   });
 }
 
+export function invokeAnkiConnect<T = unknown>(action: string, params: Record<string, unknown> = {}): Promise<T> {
+  const executeRequest = async (): Promise<T> => {
+    const elapsedMs: number = Date.now() - lastRequestCompletedAt;
+    const delayMs: number = Math.max(0, MIN_REQUEST_INTERVAL_MS - elapsedMs);
+    if (delayMs > 0) {
+      console.log(`[AnkiConnect] 等待 ${delayMs}ms 后发送下一请求...`);
+      await wait(delayMs);
+    }
+
+    try {
+      return await sendAnkiConnectRequest<T>(action, params);
+    } finally {
+      lastRequestCompletedAt = Date.now();
+    }
+  };
+
+  const request: Promise<T> = requestQueue.then(executeRequest);
+  requestQueue = request.then(
+    (): void => undefined,
+    (): void => undefined,
+  );
+  return request;
+}
+
 export async function getMostRecentNoteId(): Promise<AnkiNoteId> {
   console.log('[AnkiConnect] 获取最近笔记ID...');
   const recentCards = await invokeAnkiConnect<AnkiCardId[]>('findCards', { query: 'added:1' });
@@ -133,7 +164,10 @@ export async function getNoteInfo(noteId: AnkiNoteId): Promise<AnkiNoteInfo | nu
   return noteInfo || null;
 }
 
-export async function ensureFieldOnNote(noteId: AnkiNoteId, fieldName: string): Promise<void> {
+export async function ensureFieldOnNote(
+  noteId: AnkiNoteId,
+  fieldName: string,
+): Promise<AnkiNoteInfo> {
   console.log(`[AnkiConnect] 验证字段: noteId=${noteId}, fieldName="${fieldName}"`);
   const noteInfoList = await invokeAnkiConnect<AnkiNoteInfo[] | AnkiNoteInfo>('notesInfo', { notes: [noteId] });
   const noteInfo = Array.isArray(noteInfoList) ? noteInfoList[0] : noteInfoList;
@@ -152,6 +186,7 @@ export async function ensureFieldOnNote(noteId: AnkiNoteId, fieldName: string): 
   }
 
   console.log(`[AnkiConnect] ✓ 字段验证通过`);
+  return noteInfo;
 }
 
 export async function attachMedia(noteId: AnkiNoteId, mediaType: MediaType, media: { url: string; filename: string }, fieldName: string): Promise<void> {

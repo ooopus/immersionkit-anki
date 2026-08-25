@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { Settings } from "../settings";
+    import type { Settings } from "../types";
     import { saveSettings } from "../settings";
     import { invokeAnkiConnect } from "../anki";
     import { CONFIG } from "../config";

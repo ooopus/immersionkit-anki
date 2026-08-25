@@ -11,7 +11,7 @@ export default defineConfig({
       userscript: {
         name: 'ImmersionKit → Anki',
         namespace: 'immersionkit_to_anki',
-        version: '1.1.19',
+        version: '1.1.20',
         description:
           "Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.",
         icon: 'https://vitejs.dev/logo.svg',

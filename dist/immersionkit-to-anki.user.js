@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.19
+// @version      1.1.20
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -3660,15 +3660,21 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
     _GM_setValue?.("targetNoteMode", s.targetNoteMode === "selected" ? "selected" : "recent");
     _GM_setValue?.("openEditorKey", openEditorKey);
   }
-  const CONNECTION_RETRY_DELAYS_MS = [250, 750];
+  const CONNECTION_RETRY_DELAYS_MS = [250, 750, 1500, 3e3];
+  const MIN_REQUEST_INTERVAL_MS = 150;
   let shouldUseBrowserEditor = false;
+  let requestQueue = Promise.resolve();
+  let lastRequestCompletedAt = 0;
   function isObject(value) {
     return typeof value === "object" && value !== null;
   }
   function hasProp(obj, key) {
     return isObject(obj) && key in obj;
   }
-  function invokeAnkiConnect(action, params = {}) {
+  function wait(delayMs) {
+    return new Promise((resolve) => window.setTimeout(resolve, delayMs));
+  }
+  function sendAnkiConnectRequest(action, params) {
     const config = getConfig();
     const payload = { action, version: 6, params };
     if (config.ANKI_CONNECT_KEY) payload.key = config.ANKI_CONNECT_KEY;
@@ -3742,6 +3748,27 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
       tryNext();
     });
   }
+  function invokeAnkiConnect(action, params = {}) {
+    const executeRequest = async () => {
+      const elapsedMs = Date.now() - lastRequestCompletedAt;
+      const delayMs = Math.max(0, MIN_REQUEST_INTERVAL_MS - elapsedMs);
+      if (delayMs > 0) {
+        console.log(`[AnkiConnect] 等待 ${delayMs}ms 后发送下一请求...`);
+        await wait(delayMs);
+      }
+      try {
+        return await sendAnkiConnectRequest(action, params);
+      } finally {
+        lastRequestCompletedAt = Date.now();
+      }
+    };
+    const request = requestQueue.then(executeRequest);
+    requestQueue = request.then(
+      () => void 0,
+      () => void 0
+    );
+    return request;
+  }
   async function getMostRecentNoteId() {
     console.log("[AnkiConnect] 获取最近笔记ID...");
     const recentCards = await invokeAnkiConnect("findCards", { query: "added:1" });
@@ -3784,6 +3811,7 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
       throw new Error(`Field "${fieldName}" does not exist on the note`);
     }
     console.log(`[AnkiConnect] ✓ 字段验证通过`);
+    return noteInfo;
   }
   async function attachMedia(noteId, mediaType, media, fieldName) {
     console.log(`[AnkiConnect] attachMedia 开始: noteId=${noteId}, mediaType=${mediaType}, url=${media.url}, filename=${media.filename}, field=${fieldName}`);
@@ -5026,11 +5054,10 @@ notifyListeners() {
         try {
           console.log(`[Anki] 处理笔记 ${noteId}...`);
           console.log(`[Anki] 即将调用 ensureFieldOnNote...`);
-          await ensureFieldOnNote(noteId, fieldName);
+          const info = await ensureFieldOnNote(noteId, fieldName);
           console.log(`[Anki] ensureFieldOnNote 完成`);
           console.log(`[Anki] 字段 "${fieldName}" 验证通过`);
           if (CONFIG.CONFIRM_OVERWRITE) {
-            const info = await getNoteInfo(noteId);
             const model = info?.modelName || "";
             const existing = info?.fields?.[fieldName]?.value || "";
             const hasExisting = typeof existing === "string" && existing.trim().length > 0;

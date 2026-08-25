@@ -5,7 +5,7 @@
  */
 
 import { CONFIG } from './config';
-import { attachMedia, ensureFieldOnNote, getMostRecentNoteId, getSelectedNoteIds, getNoteInfo } from './anki';
+import { attachMedia, ensureFieldOnNote, getMostRecentNoteId, getSelectedNoteIds } from './anki';
 import { getSuccessText, revertButtonState, setButtonState, showModal } from './dom';
 import { captureAudioUrlFromMining } from './miningSoundCapture';
 import { getExampleGroups, getExampleItems } from './exampleGroup';
@@ -147,12 +147,11 @@ export async function addMediaToAnkiForIndex(
       try {
         console.log(`[Anki] 处理笔记 ${noteId}...`);
         console.log(`[Anki] 即将调用 ensureFieldOnNote...`);
-        await ensureFieldOnNote(noteId, fieldName);
+        const info: AnkiNoteInfo = await ensureFieldOnNote(noteId, fieldName);
         console.log(`[Anki] ensureFieldOnNote 完成`);
         console.log(`[Anki] 字段 "${fieldName}" 验证通过`);
 
         if (CONFIG.CONFIRM_OVERWRITE) {
-          const info = (await getNoteInfo(noteId)) as AnkiNoteInfo | null;
           const model = info?.modelName || '';
           const existing = info?.fields?.[fieldName]?.value || '';
           const hasExisting = typeof existing === 'string' && existing.trim().length > 0;

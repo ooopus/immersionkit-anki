@@ -4,6 +4,8 @@ import { GM_xmlhttpRequest } from '$';
 
 type AnkiConnectResult<T> = { result: T; error: string | null };
 
+const CONNECTION_RETRY_DELAYS_MS: readonly number[] = [250, 750];
+
 let shouldUseBrowserEditor: boolean = false;
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -18,20 +20,22 @@ export function invokeAnkiConnect<T = unknown>(action: string, params: Record<st
   const config = getConfig();
   const payload: Record<string, unknown> = { action, version: 6, params };
   if (config.ANKI_CONNECT_KEY) payload.key = config.ANKI_CONNECT_KEY;
-  const endpoints = [config.ANKI_CONNECT_URL, 'http://localhost:8765'];
+  const endpoints: string[] = Array.from(new Set([
+    config.ANKI_CONNECT_URL,
+    'http://localhost:8765',
+  ]));
+  const totalAttempts: number = endpoints.length * (CONNECTION_RETRY_DELAYS_MS.length + 1);
 
   console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
 
   return new Promise((resolve, reject) => {
-    let tried = 0;
-    function tryNext() {
-      if (tried >= endpoints.length) {
-        console.error('[AnkiConnect] 所有端点连接失败');
-        reject(new Error('Failed to connect to AnkiConnect. Is Anki running?'));
-        return;
-      }
-      const url = endpoints[tried++];
-      console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${tried}/${endpoints.length})`);
+    let endpointIndex: number = 0;
+    let retryRound: number = 0;
+
+    function tryNext(): void {
+      const url: string = endpoints[endpointIndex];
+      const attemptNumber: number = retryRound * endpoints.length + endpointIndex + 1;
+      console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${attemptNumber}/${totalAttempts})`);
 
       GM_xmlhttpRequest({
         method: 'POST',
@@ -70,7 +74,24 @@ export function invokeAnkiConnect<T = unknown>(action: string, params: Record<st
         },
         onerror: (err) => {
           console.warn(`[AnkiConnect] 连接失败: ${url}`, err);
-          tryNext();
+
+          if (endpointIndex + 1 < endpoints.length) {
+            endpointIndex += 1;
+            tryNext();
+            return;
+          }
+
+          if (retryRound < CONNECTION_RETRY_DELAYS_MS.length) {
+            const retryDelayMs: number = CONNECTION_RETRY_DELAYS_MS[retryRound];
+            retryRound += 1;
+            endpointIndex = 0;
+            console.warn(`[AnkiConnect] ${retryDelayMs}ms 后重试连接...`);
+            window.setTimeout(tryNext, retryDelayMs);
+            return;
+          }
+
+          console.error('[AnkiConnect] 所有端点连接失败');
+          reject(new Error('Failed to connect to AnkiConnect. Is Anki running?'));
         },
       });
     }

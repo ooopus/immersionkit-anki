@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ImmersionKit → Anki
 // @namespace    immersionkit_to_anki
-// @version      1.1.18
+// @version      1.1.19
 // @description  Add example images and audio from ImmersionKit's dictionary pages to your latest Anki note via AnkiConnect.
 // @icon         https://vitejs.dev/logo.svg
 // @match        https://www.immersionkit.com/*
@@ -3660,6 +3660,7 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
     _GM_setValue?.("targetNoteMode", s.targetNoteMode === "selected" ? "selected" : "recent");
     _GM_setValue?.("openEditorKey", openEditorKey);
   }
+  const CONNECTION_RETRY_DELAYS_MS = [250, 750];
   let shouldUseBrowserEditor = false;
   function isObject(value) {
     return typeof value === "object" && value !== null;
@@ -3671,18 +3672,19 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
     const config = getConfig();
     const payload = { action, version: 6, params };
     if (config.ANKI_CONNECT_KEY) payload.key = config.ANKI_CONNECT_KEY;
-    const endpoints = [config.ANKI_CONNECT_URL, "http://localhost:8765"];
+    const endpoints = Array.from( new Set([
+      config.ANKI_CONNECT_URL,
+      "http://localhost:8765"
+    ]));
+    const totalAttempts = endpoints.length * (CONNECTION_RETRY_DELAYS_MS.length + 1);
     console.log(`[AnkiConnect] 调用: action="${action}", params=`, params);
     return new Promise((resolve, reject) => {
-      let tried = 0;
+      let endpointIndex = 0;
+      let retryRound = 0;
       function tryNext() {
-        if (tried >= endpoints.length) {
-          console.error("[AnkiConnect] 所有端点连接失败");
-          reject(new Error("Failed to connect to AnkiConnect. Is Anki running?"));
-          return;
-        }
-        const url = endpoints[tried++];
-        console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${tried}/${endpoints.length})`);
+        const url = endpoints[endpointIndex];
+        const attemptNumber = retryRound * endpoints.length + endpointIndex + 1;
+        console.log(`[AnkiConnect] 尝试连接: ${url} (尝试 ${attemptNumber}/${totalAttempts})`);
         _GM_xmlhttpRequest({
           method: "POST",
           url,
@@ -3719,7 +3721,21 @@ OPEN_EDITOR_KEY: typeof savedOpenEditorKey === "string" ? savedOpenEditorKey : D
           },
           onerror: (err) => {
             console.warn(`[AnkiConnect] 连接失败: ${url}`, err);
-            tryNext();
+            if (endpointIndex + 1 < endpoints.length) {
+              endpointIndex += 1;
+              tryNext();
+              return;
+            }
+            if (retryRound < CONNECTION_RETRY_DELAYS_MS.length) {
+              const retryDelayMs = CONNECTION_RETRY_DELAYS_MS[retryRound];
+              retryRound += 1;
+              endpointIndex = 0;
+              console.warn(`[AnkiConnect] ${retryDelayMs}ms 后重试连接...`);
+              window.setTimeout(tryNext, retryDelayMs);
+              return;
+            }
+            console.error("[AnkiConnect] 所有端点连接失败");
+            reject(new Error("Failed to connect to AnkiConnect. Is Anki running?"));
           }
         });
       }
